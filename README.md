@@ -1,0 +1,81 @@
+# PiongTeX: Mahjong LaTeX Package
+
+This is a LaTeX package for elegantly and efficiently rendering Mahjong tiles. The project has been refactored, with the core implementation organized into a standalone `mahjong.sty` file. This package adopts an extremely compact MPSZ syntax and supports the automated rendering of complex tile arrangements, including red fives (Akadora), rotated tiles for called melds, and closed kans (Ankan).
+
+## Installation & Setup
+
+Place the `mahjong.sty` file in your TeX working directory or your local `texmf` tree. Import the package in your document's preamble using `\usepackage`, where you can optionally adjust the tile height:
+
+```tex
+\usepackage[height=1.5\baselineskip]{mahjong}
+
+```
+
+> For backward compatibility, `better_mahjong.sty` is retained as a compatibility entry point. Legacy projects can continue to use `\usepackage{better_mahjong}` without modifying their code.
+
+## Basic Usage
+
+Use `\mahjong{...}` command in the body of your document to easily render tiles:
+
+```tex
+% Standard hand
+\mahjong{111m456s111p11122z}
+
+% Hand with called melds (rotated tiles) and gaps
+\mahjong{111m111s111p22z2-3*333z}
+
+% Hand with closed kans and specific red fives
+\mahjong{555m555s22z2-55555p1-33333z}
+
+```
+
+For developers accustomed to the LaTeX3 (expl3) programming style, the package also exposes underlying commands for direct calling:
+
+```tex
+\ExplSyntaxOn
+\mahjong_main:n {111m456s111p11122z}
+\mahjong:n      {111m456s111p11122z}
+\ExplSyntaxOff
+
+```
+
+## Syntax Guide
+
+This package uses an intuitive "number + letter" input syntax. The specific rules are as follows:
+
+* **Basic Suits**
+* `m` / `p` / `s` / `z`: Represent Characters (Manzu), Circles (Pinzu), Bamboo (Souzu), and Honor tiles (Jihai), respectively. Example: `123m456p`.
+
+
+* **Special Tiles**
+* `0m` / `0p` / `0s`: Renders the corresponding Red Dora (Red Five).
+* `x`: Renders the back of a Mahjong tile (face-down).
+* `?`: Renders an unknown tile.
+
+
+* **Gaps and Spacing**
+* `-`: Generates a standard gap (commonly used to separate the closed hand from open melds).
+* `N-` (e.g., `2-`): A numeric prefix generates a proportional gap. For instance, `2-` indicates a gap equal to 2/7 of a tile's width (this syntax is primarily for compatibility with legacy test data).
+
+
+* **Called Melds and Rotation**
+* `*` or `'`: Rotates the preceding tile sideways (used to indicate Chii, Pon, or Riichi).
+* `+` or `"`: Generates two stacked, sideways tiles (used to indicate an upgraded Kan / Shouminkan).
+
+
+* **Closed Kan (Ankan) Shortcuts**
+* Typing 5 identical consecutive numbers (e.g., `33333z` or `55555p`) will automatically render using the visual rules for a **closed kan**: "face-down tile + two face-up tiles + face-down tile".
+* For suits containing red fives (e.g., `55555m` / `55555p` / `55555s`), it will automatically render as: "face-down tile + red five + regular five + face-down tile".
+
+
+
+## Compilation
+
+This package supports compilation using the standard `pdflatex` engine. To view the test results, you can directly compile the provided test file:
+
+```bash
+pdflatex test.tex
+
+```
+
+*(A verified `test.pdf` is included in the project for reference to check the output rendering.)*

@@ -1,0 +1,34 @@
+\documentclass{article}
+\usepackage[height=1.5\baselineskip]{mahjong}
+\usepackage[a4paper,margin=22mm]{geometry}
+\setlength\parindent{0pt}
+\setlength\parskip{10pt}
+
+\begin{document}
+
+Basic hands:
+
+\mahjong{111m456s111p11122z}
+
+\mahjong{1112345678999p}
+
+\mahjong{19m19s19p1234567z}
+
+Rotated/open meld marker syntax is preserved:
+
+\mahjong{111m111s111p22z2-3*333z}
+
+Concealed-kong shorthand is preserved:
+
+\mahjong{555m555s22z2-55555p1-33333z}
+
+Original package shorthands are also supported:
+
+\mahjong{123m-xx?4p'5p"0s}
+
+Expl3 internal command available:\par
+\ExplSyntaxOn
+\mahjong:n {111m456s111p11122z}
+\ExplSyntaxOff
+
+\end{document}

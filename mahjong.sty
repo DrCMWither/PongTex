@@ -1,0 +1,366 @@
+%% mahjong.sty -- Typeset Japanese/Riichi Mahjong tiles from compact MPSZ notation.
+%% Refactored package implementation.  User-facing notation is kept compatible
+%% with the original project: 123m456p, x, ?, -, ', ", plus the local * / +
+%% rotation shorthands used by the test file.
+
+\NeedsTeXFormat{LaTeX2e}[2020/10/01]
+\RequirePackage{expl3}
+\ProvidesExplPackage{mahjong}{2026/07/01}{1.2.0}{Typeset Japanese Mahjong hands}
+
+\RequirePackage{xparse}
+\RequirePackage{l3keys2e}
+\RequirePackage{graphicx}
+\RequirePackage{stackengine}
+
+\ExplSyntaxOn
+
+% -----------------------------------------------------------------------------
+% Messages
+% -----------------------------------------------------------------------------
+\msg_new:nnnn { mahjong } { invalid-token }
+  { Token~'#1'~is~not~valid~in~Mahjong~MPSZ~notation. }
+  { Valid~tokens~are~0--9,~m,~p,~s,~z,~x,~?,~-,~',~",~*,~+,~and~spaces. }
+
+\msg_new:nnnn { mahjong } { unknown-tile }
+  { I~cannot~find~tile~'#1'. }
+  { Check~that~the~tile~PDF~exists~under~the~configured~tile-dir. }
+
+\msg_new:nnnn { mahjong } { unknown-orientation }
+  { Orientation~'#1'~is~unknown. }
+  { This~is~an~internal~error;~valid~orientations~are~0,~1,~and~2. }
+
+\msg_new:nnnn { mahjong } { missing-suit }
+  { Tile~digit(s)~'#1'~do~not~have~a~suit. }
+  { Add~m,~p,~s,~or~z~after~the~digit~group,~or~use~N-~for~a~separator. }
+
+\msg_new:nnnn { mahjong } { missing-rotation-target }
+  { Rotation~marker~'#1'~has~no~tile~to~rotate. }
+  { Put~the~marker~after~a~digit,~x,~?,~or~a~completed~tile~group. }
+
+% -----------------------------------------------------------------------------
+% Package options and state
+% -----------------------------------------------------------------------------
+\dim_new:N \g__mahjong_default_height_dim
+\fp_new:N  \g__mahjong_default_scale_fp
+\tl_new:N  \g__mahjong_tile_dir_tl
+
+\dim_gset:Nn \g__mahjong_default_height_dim { \baselineskip }
+\fp_gset:Nn  \g__mahjong_default_scale_fp  { 0.75 }
+\tl_gset:Nn  \g__mahjong_tile_dir_tl       { tiles }
+
+\keys_define:nn { mahjong }
+  {
+    height   .dim_gset:N = \g__mahjong_default_height_dim,
+    scale    .fp_gset:N  = \g__mahjong_default_scale_fp,
+    tile-dir .tl_gset:N  = \g__mahjong_tile_dir_tl,
+  }
+\ProcessKeysOptions { mahjong }
+
+\dim_new:N \l__mahjong_tile_height_dim
+\dim_new:N \l__mahjong_tile_width_dim
+\dim_new:N \l__mahjong_symbol_height_dim
+\dim_new:N \l__mahjong_baseline_offset_dim
+\fp_new:N  \l__mahjong_tile_scale_fp
+
+\seq_new:N \l__mahjong_tiles_seq
+\seq_new:N \l__mahjong_pending_seq
+\tl_new:N  \l__mahjong_pending_digits_tl
+\tl_new:N  \l__mahjong_tmp_tl
+\tl_new:N  \l__mahjong_tmpa_tl
+\tl_new:N  \l__mahjong_tmpb_tl
+\tl_new:N  \l__mahjong_first_face_tl
+\tl_new:N  \l__mahjong_file_tl
+\int_new:N \l__mahjong_tmp_int
+\bool_new:N \l__mahjong_concealed_kong_bool
+
+% -----------------------------------------------------------------------------
+% Tuple helpers
+% Pending tuple: {face}{orientation}
+% Output tuple:  {kind}{a}{b}{c}
+%   tile = {tile}{face}{suit}{orientation}; suit may be empty for x and ?
+%   gap  = {gap}{n}{ }{ }; n means n/7 of one tile width
+% -----------------------------------------------------------------------------
+\cs_new_protected:Npn \__mahjong_pending_put:nn #1#2
+  { \seq_put_right:Nn \l__mahjong_pending_seq { {#1} {#2} } }
+
+\cs_new_protected:Npn \__mahjong_tile_put:nnn #1#2#3
+  { \seq_put_right:Nn \l__mahjong_tiles_seq { { tile } {#1} {#2} {#3} } }
+\cs_generate_variant:Nn \__mahjong_tile_put:nnn { Vnn }
+
+\cs_new_protected:Npn \__mahjong_gap_put:n #1
+  { \seq_put_right:Nn \l__mahjong_tiles_seq { { gap } {#1} { } { } } }
+
+\cs_new_protected:Npn \__mahjong_pending_set_last_orientation:n #1
+  {
+    \seq_pop_right:NNTF \l__mahjong_pending_seq \l__mahjong_tmp_tl
+      { \exp_last_unbraced:NV \__mahjong_pending_set_last_orientation_aux:nnn \l__mahjong_tmp_tl {#1} }
+      { \msg_error:nnn { mahjong } { missing-rotation-target } {#1} }
+  }
+\cs_new_protected:Npn \__mahjong_pending_set_last_orientation_aux:nnn #1#2#3
+  { \seq_put_right:Nn \l__mahjong_pending_seq { {#1} {#3} } }
+
+\cs_new_protected:Npn \__mahjong_output_set_last_orientation:n #1
+  {
+    \seq_pop_right:NNTF \l__mahjong_tiles_seq \l__mahjong_tmp_tl
+      { \exp_last_unbraced:NV \__mahjong_output_set_last_orientation_aux:nnnnn \l__mahjong_tmp_tl {#1} }
+      { \msg_error:nnn { mahjong } { missing-rotation-target } {#1} }
+  }
+\cs_new_protected:Npn \__mahjong_output_set_last_orientation_aux:nnnnn #1#2#3#4#5
+  {
+    \str_if_eq:nnTF {#1} { tile }
+      { \seq_put_right:Nn \l__mahjong_tiles_seq { { tile } {#2} {#3} {#5} } }
+      {
+        \seq_put_right:Nn \l__mahjong_tiles_seq { {#1} {#2} {#3} {#4} }
+        \msg_error:nnn { mahjong } { missing-rotation-target } {#5}
+      }
+  }
+
+\cs_new_protected:Npn \__mahjong_set_last_orientation:n #1
+  {
+    \seq_if_empty:NTF \l__mahjong_pending_seq
+      { \__mahjong_output_set_last_orientation:n {#1} }
+      { \__mahjong_pending_set_last_orientation:n {#1} }
+  }
+
+% -----------------------------------------------------------------------------
+% Parser
+% -----------------------------------------------------------------------------
+\cs_new_protected:Npn \__mahjong_parse:n #1
+  {
+    \seq_clear:N \l__mahjong_tiles_seq
+    \seq_clear:N \l__mahjong_pending_seq
+    \tl_set:Nx \l__mahjong_tmp_tl { \text_lowercase:n {#1} }
+    \tl_map_inline:Nn \l__mahjong_tmp_tl
+      { \__mahjong_parse_token:n {##1} }
+    \seq_if_empty:NF \l__mahjong_pending_seq
+      {
+        \tl_clear:N \l__mahjong_pending_digits_tl
+        \seq_map_inline:Nn \l__mahjong_pending_seq
+          { \__mahjong_collect_pending_digits:nn ##1 }
+        \msg_error:nnV { mahjong } { missing-suit } \l__mahjong_pending_digits_tl
+      }
+  }
+
+\cs_new_protected:Npn \__mahjong_collect_pending_digits:nn #1#2
+  { \tl_put_right:Nn \l__mahjong_pending_digits_tl {#1} }
+
+\cs_new_protected:Npn \__mahjong_parse_token:n #1
+  {
+    \tl_if_blank:nTF {#1}
+      { }
+      {
+        \tl_if_in:nnTF { 0123456789 } {#1}
+          { \__mahjong_pending_put:nn {#1} {0} }
+          {
+            \tl_if_in:nnTF { mpsz } {#1}
+              { \__mahjong_flush_suit:n {#1} }
+              {
+                \str_case:nnF {#1}
+                  {
+                    { - } { \__mahjong_handle_dash: }
+                    { x } { \__mahjong_tile_put:nnn { x } { } {0} }
+                    { ? } { \__mahjong_tile_put:nnn { ? } { } {0} }
+                    { ' } { \__mahjong_set_last_orientation:n {1} }
+                    { * } { \__mahjong_set_last_orientation:n {1} }
+                    { " } { \__mahjong_set_last_orientation:n {2} }
+                    { + } { \__mahjong_set_last_orientation:n {2} }
+                  }
+                  { \msg_error:nnn { mahjong } { invalid-token } {#1} }
+              }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \__mahjong_handle_dash:
+  {
+    \seq_if_empty:NTF \l__mahjong_pending_seq
+      { \__mahjong_gap_put:n {7} }
+      {
+        \tl_clear:N \l__mahjong_pending_digits_tl
+        \seq_map_inline:Nn \l__mahjong_pending_seq
+          { \__mahjong_collect_pending_digits:nn ##1 }
+        \__mahjong_gap_put:V \l__mahjong_pending_digits_tl
+        \seq_clear:N \l__mahjong_pending_seq
+      }
+  }
+\cs_generate_variant:Nn \__mahjong_gap_put:n { V }
+
+\cs_new_protected:Npn \__mahjong_flush_suit:n #1
+  {
+    \seq_if_empty:NF \l__mahjong_pending_seq
+      {
+        \__mahjong_detect_concealed_kong:
+        \bool_if:NTF \l__mahjong_concealed_kong_bool
+          { \__mahjong_flush_concealed_kong:n {#1} }
+          {
+            \seq_map_inline:Nn \l__mahjong_pending_seq
+              { \__mahjong_flush_pending_item:nnn ##1 {#1} }
+          }
+        \seq_clear:N \l__mahjong_pending_seq
+      }
+  }
+
+\cs_new_protected:Npn \__mahjong_flush_pending_item:nnn #1#2#3
+  { \__mahjong_tile_put:nnn {#1} {#3} {#2} }
+
+\cs_new_protected:Npn \__mahjong_detect_concealed_kong:
+  {
+    \bool_set_false:N \l__mahjong_concealed_kong_bool
+    \int_compare:nNnT { \seq_count:N \l__mahjong_pending_seq } = {5}
+      {
+        \seq_get_left:NN \l__mahjong_pending_seq \l__mahjong_tmp_tl
+        \exp_last_unbraced:NV \__mahjong_remember_first_pending:nn \l__mahjong_tmp_tl
+        \bool_set_true:N \l__mahjong_concealed_kong_bool
+        \seq_map_inline:Nn \l__mahjong_pending_seq
+          { \__mahjong_check_concealed_kong_item:nn ##1 }
+      }
+  }
+
+\cs_new_protected:Npn \__mahjong_remember_first_pending:nn #1#2
+  { \tl_set:Nn \l__mahjong_first_face_tl {#1} }
+
+\cs_new_protected:Npn \__mahjong_check_concealed_kong_item:nn #1#2
+  {
+    \str_if_eq:VnF \l__mahjong_first_face_tl {#1}
+      { \bool_set_false:N \l__mahjong_concealed_kong_bool }
+    \int_compare:nNnF {#2} = {0}
+      { \bool_set_false:N \l__mahjong_concealed_kong_bool }
+  }
+
+\cs_new_protected:Npn \__mahjong_flush_concealed_kong:n #1
+  {
+    % Five repeated digits followed by a suit are rendered as a concealed kong:
+    % back, two visible tiles, back.  For 55555m/p/s the visible pair is red 5
+    % plus normal 5, matching the common red-five notation.
+    \__mahjong_tile_put:nnn { x } { } {0}
+    \str_if_eq:VnTF \l__mahjong_first_face_tl {5}
+      {
+        \tl_if_in:nnTF { mps } {#1}
+          {
+            \__mahjong_tile_put:nnn {0} {#1} {0}
+            \__mahjong_tile_put:nnn {5} {#1} {0}
+          }
+          {
+            \__mahjong_tile_put:nnn {5} {#1} {0}
+            \__mahjong_tile_put:nnn {5} {#1} {0}
+          }
+      }
+      {
+        \__mahjong_tile_put:Vnn \l__mahjong_first_face_tl {#1} {0}
+        \__mahjong_tile_put:Vnn \l__mahjong_first_face_tl {#1} {0}
+      }
+    \__mahjong_tile_put:nnn { x } { } {0}
+  }
+
+% -----------------------------------------------------------------------------
+% Rendering
+% -----------------------------------------------------------------------------
+\cs_new:Npn \__mahjong_file:n #1
+  { \g__mahjong_tile_dir_tl / mahjong-#1.pdf }
+
+\cs_new_protected:Npn \__mahjong_render_hand:n #1
+  {
+    \dim_set:Nn \l__mahjong_symbol_height_dim
+      { \fp_to_decimal:N \l__mahjong_tile_scale_fp \l__mahjong_tile_height_dim }
+    \dim_set:Nn \l__mahjong_baseline_offset_dim
+      { ( \l__mahjong_tile_height_dim - \l__mahjong_symbol_height_dim ) / 2 }
+    \dim_set:Nn \l__mahjong_tile_width_dim
+      { 0.75 \l__mahjong_tile_height_dim }
+    \__mahjong_parse:n {#1}
+    \leavevmode
+    \raisebox { -\l__mahjong_baseline_offset_dim }
+      { \seq_map_inline:Nn \l__mahjong_tiles_seq { \__mahjong_render_item:nnnn ##1 } }
+  }
+
+\cs_new_protected:Npn \__mahjong_render_item:nnnn #1#2#3#4
+  {
+    \str_if_eq:nnTF {#1} { gap }
+      { \__mahjong_render_gap:n {#2} }
+      { \__mahjong_render_tile:nnn {#2} {#3} {#4} }
+  }
+
+\cs_new_protected:Npn \__mahjong_render_gap:n #1
+  { \hspace { \dim_eval:n { #1 \l__mahjong_tile_width_dim / 7 } } }
+
+\cs_new_protected:Npn \__mahjong_render_tile:nnn #1#2#3
+  {
+    \str_case:nnF {#1}
+      {
+        { x } { \__mahjong_make_back_tile:n {#3} }
+        { ? } { \__mahjong_make_symbol_tile:nn { \__mahjong_file:n { Blank } } {#3} }
+      }
+      {
+        % Compatibility alias used by an older draft parser: 8z means a back tile.
+        \str_if_eq:nnTF {#1#2} {8z}
+          { \__mahjong_make_back_tile:n {#3} }
+          { \__mahjong_make_symbol_tile:nn { \__mahjong_file:n { #1#2 } } {#3} }
+      }
+  }
+
+\cs_new_protected:Npn \__mahjong_make_back_tile:n #1
+  {
+    \int_case:nnF {#1}
+      {
+        {0} { \includegraphics [ height = \l__mahjong_tile_height_dim ] { \__mahjong_file:n { Back } } }
+        {1} { \includegraphics [ angle = 90, width = \l__mahjong_tile_height_dim ] { \__mahjong_file:n { Back } } }
+        {2} { \stackon [0pt] { \__mahjong_make_back_tile:n {1} } { \__mahjong_make_back_tile:n {1} } }
+      }
+      { \msg_fatal:nnn { mahjong } { unknown-orientation } {#1} }
+  }
+
+\cs_new_protected:Npn \__mahjong_make_symbol_tile:nn #1#2
+  {
+    \file_if_exist:nTF {#1}
+      {
+        \int_case:nnF {#2}
+          {
+            {0}
+              {
+                \stackinset { c } { 0pt } { c } { 0pt }
+                  { \includegraphics [ height = \l__mahjong_symbol_height_dim ] {#1} }
+                  { \includegraphics [ height = \l__mahjong_tile_height_dim ] { \__mahjong_file:n { Front } } }
+              }
+            {1}
+              {
+                \stackinset { c } { 0pt } { c } { 0pt }
+                  { \includegraphics [ angle = 90, width = \l__mahjong_symbol_height_dim ] {#1} }
+                  { \includegraphics [ angle = 90, width = \l__mahjong_tile_height_dim ] { \__mahjong_file:n { Front } } }
+              }
+            {2}
+              { \stackon [0pt] { \__mahjong_make_symbol_tile:nn {#1} {1} } { \__mahjong_make_symbol_tile:nn {#1} {1} } }
+          }
+          { \msg_fatal:nnn { mahjong } { unknown-orientation } {#2} }
+      }
+      { \msg_error:nnn { mahjong } { unknown-tile } {#1} }
+  }
+
+% -----------------------------------------------------------------------------
+% Public commands
+% -----------------------------------------------------------------------------
+\cs_new_protected:Npn \mahjong_typeset_hand:n #1
+  {
+    \group_begin:
+      \dim_set_eq:NN \l__mahjong_tile_height_dim \g__mahjong_default_height_dim
+      \fp_set_eq:NN  \l__mahjong_tile_scale_fp  \g__mahjong_default_scale_fp
+      \__mahjong_render_hand:n {#1}
+    \group_end:
+  }
+
+\cs_new_protected:Npn \mahjong:n #1
+  { \mahjong_typeset_hand:n {#1} }
+
+% Compatibility with the parser prototype that exposed \mahjong_main:n.
+\cs_new_protected:Npn \mahjong_main:n #1
+  { \mahjong_typeset_hand:n {#1} }
+
+\NewDocumentCommand \mahjong { O{\g__mahjong_default_height_dim} O{\g__mahjong_default_scale_fp} m }
+  {
+    \group_begin:
+      \dim_set:Nn \l__mahjong_tile_height_dim {#1}
+      \fp_set:Nn  \l__mahjong_tile_scale_fp  {#2}
+      \__mahjong_render_hand:n {#3}
+    \group_end:
+  }
+
+\ExplSyntaxOff
+\endinput
