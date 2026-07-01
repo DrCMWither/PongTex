@@ -49,8 +49,8 @@ For developers accustomed to the LaTeX3 (expl3) programming style, the package a
 
 ```tex
 \ExplSyntaxOn
-\pongtex_main:n {111m456s111p11122z}
-\pongtex:n      {111m456s111p11122z}
+\pongtex_typeset_hand:n {111m456s111p11122z}
+\pongtex:n              {111m456s111p11122z}
 \ExplSyntaxOff
 
 ```
@@ -106,11 +106,9 @@ This package uses an intuitive "number + letter" input syntax. The specific rule
 This package supports compilation using the standard `pdflatex` engine. To view the test results, you can directly compile the provided test file:
 
 ```bash
-pdflatex test.tex
+pdflatex pongtex_doc.tex
 
 ```
-
-*(A verified `test.pdf` is included in the project for reference to check the output rendering.)*
 
 ## Acknowledgments
 
