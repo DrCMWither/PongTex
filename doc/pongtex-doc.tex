@@ -220,6 +220,24 @@ breaks tiles into rows.  The row length is controlled by \texttt{river-cols}.
 \mahjongriver[river-cols=6]{1m9m2z5z3s6s1s*1m8p4z87m}
 \end{center}
 
+\section{Overlay Notes}
+
+The \cmd{\mahjong} command supports text annotations.  Use \texttt{[]} in
+\cmd{\mahjong} to attach a note above the previous tile.
+
+\begin{longtable}{@{}p{0.5\linewidth}p{0.5\linewidth}@{}}
+  \toprule
+  Input & Output \\
+  \midrule
+  \code{111m111s111p2z2-3*333z7-2z[waiting]} & \mahjong{111m111s111p2z2-3*333z7-2z[waiting]} \\
+  \code{33333z[concealed kong]} & \mahjong{33333z[concealed kong]} \\
+  \bottomrule
+  \end{longtable}
+
+When a note is added to the fifth tile on the concealed kong, a warning
+\texttt{Overlay text '<overlay text>' is attached to the final back tile of
+a concealed kong.} will be triggered and the note will be moved to the fourth tile.
+
 \section{Expl3 interface}
 
 For package authors who prefer an expl3-style interface, PongTeX also exposes:

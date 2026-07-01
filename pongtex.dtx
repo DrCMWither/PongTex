@@ -100,7 +100,7 @@
 % -----------------------------------------------------------------------------
 \msg_new:nnnn { pongtex } { invalid-token }
   { Token~'#1'~is~not~valid~in~Mahjong~MPSZ~notation. }
-  { Valid~tokens~are~0--9,~m,~p,~s,~z,~x,~?,~-,~',~",~*,~+,~and~spaces. }
+  { Valid~tokens~are~0--9,~m,~p,~s,~z,~x,~?,~-,~',~",~*,~+,~[text],~and~spaces. }
 
 \msg_new:nnnn { pongtex } { unknown-tile }
   { I~cannot~find~tile~'#1'. }
@@ -117,6 +117,18 @@
 \msg_new:nnnn { pongtex } { missing-rotation-target }
   { Rotation~marker~'#1'~has~no~tile~to~rotate. }
   { Put~the~marker~after~a~digit,~x,~?,~or~a~completed~tile~group. }
+
+\msg_new:nnnn { pongtex } { missing-overlay-target }
+  { Overlay~text~'#1'~has~no~tile~to~annotate. }
+  { Put~[text]~after~a~digit,~x,~?,~or~a~completed~tile~group. }
+
+\msg_new:nnnn { pongtex } { unclosed-overlay }
+  { Overlay~text~was~started~with~'['~but~no~closing~']'~was~found. }
+  { Add~a~closing~']'.~Nested~literal~square~brackets~are~not~supported. }
+
+\msg_new:nnnn { pongtex } { concealed-kong-overlay }
+  { Overlay~text~'#1'~is~attached~to~the~final~back~tile~of~a~concealed~kong. }
+  { This~warning~confirms~that~the~postfix~annotation~targets~the~expanded~kong~tail. }
 
 \msg_new:nnnn { pongtex } { invalid-bool }
   { Boolean~option~'#1'~must~be~one~of~true,~false,~1,~0,~yes,~no,~on,~or~off. }
@@ -138,10 +150,13 @@
 \dim_gset:Nn \g__pongtex_river_row_gap_dim { 0pt }
 
 \tl_new:N   \g__pongtex_back_color_tl
+\tl_new:N   \g__pongtex_overlay_style_tl
 \bool_new:N \g__pongtex_back_recolor_bool
 \bool_new:N \g__pongtex_no_aka_bool
 
 \tl_gclear:N \g__pongtex_back_color_tl
+\tl_gset:Nn \g__pongtex_overlay_style_tl
+  { font = \scriptsize, align = center, anchor = south, inner~sep = 0.2pt, outer~sep = 0pt }
 
 \bool_gset_false:N \g__pongtex_back_recolor_bool
 \bool_gset_false:N \g__pongtex_no_aka_bool
@@ -227,6 +242,8 @@
     river-cols .value_required:n = true,
     river-row-gap .dim_gset:N = \g__pongtex_river_row_gap_dim,
     river-row-gap .value_required:n = true,
+    overlay-style .tl_gset:N = \g__pongtex_overlay_style_tl,
+    overlay-style .value_required:n = true,
 
     color .code:n =
       { \__pongtex_set_back_color_global:n {#1} },
@@ -245,6 +262,7 @@
 \fp_new:N  \l__pongtex_tile_scale_fp
 \int_new:N \l__pongtex_river_cols_int
 \dim_new:N \l__pongtex_river_row_gap_dim
+\tl_new:N  \l__pongtex_overlay_style_tl
 \int_new:N \l__pongtex_river_col_int
 \int_new:N \l__pongtex_river_seen_tiles_int
 \int_new:N \l__pongtex_river_total_tiles_int
@@ -257,8 +275,10 @@
 \tl_new:N  \l__pongtex_tmpb_tl
 \tl_new:N  \l__pongtex_first_face_tl
 \tl_new:N  \l__pongtex_file_tl
+\box_new:N \l__pongtex_tile_box
 \int_new:N \l__pongtex_tmp_int
 \bool_new:N \l__pongtex_concealed_kong_bool
+\bool_new:N \l__pongtex_last_concealed_kong_tail_bool
 
 \keys_define:nn { pongtex / local }
   {
@@ -268,6 +288,8 @@
     river-cols .value_required:n = true,
     river-row-gap .dim_set:N = \l__pongtex_river_row_gap_dim,
     river-row-gap .value_required:n = true,
+    overlay-style .tl_set:N = \l__pongtex_overlay_style_tl,
+    overlay-style .value_required:n = true,
 
     color .code:n =
       { \__pongtex_set_back_color_local:n {#1} },
@@ -280,59 +302,71 @@
 
 % -----------------------------------------------------------------------------
 % Tuple helpers
-% Pending tuple: {face}{orientation}
-% Output tuple:  {kind}{a}{b}{c}
-%   tile = {tile}{face}{suit}{orientation}; suit may be empty for x and ?
-%   gap  = {gap}{n}{ }{ }; n means n/7 of one tile width
+% Pending tuple: {face}{orientation}{overlay}
+% Output tuple:  {kind}{a}{b}{c}{overlay}
+%   tile = {tile}{face}{suit}{orientation}{overlay}; suit may be empty for x and ?
+%   gap  = {gap}{n}{ }{ }{ }; n means n/7 of one tile width
 % -----------------------------------------------------------------------------
 \cs_new_protected:Npn \__pongtex_pending_put:nn #1#2
-  { \seq_put_right:Nn \l__pongtex_pending_seq { {#1} {#2} } }
+  { \seq_put_right:Nn \l__pongtex_pending_seq { {#1} {#2} { } } }
 
+\cs_new_protected:Npn \__pongtex_tile_put:nnnn #1#2#3#4
+  {
+    \seq_put_right:Nn \l__pongtex_tiles_seq { { tile } {#1} {#2} {#3} {#4} }
+    \bool_set_false:N \l__pongtex_last_concealed_kong_tail_bool
+  }
 \cs_new_protected:Npn \__pongtex_tile_put:nnn #1#2#3
-  { \seq_put_right:Nn \l__pongtex_tiles_seq { { tile } {#1} {#2} {#3} } }
+  { \__pongtex_tile_put:nnnn {#1} {#2} {#3} { } }
 \cs_generate_variant:Nn \__pongtex_tile_put:nnn { Vnn }
+\cs_generate_variant:Nn \__pongtex_tile_put:nnnn { Vnnn }
 
-\cs_new_protected:Npn \__pongtex_tile_put_aka_aware:nnn #1#2#3
+\cs_new_protected:Npn \__pongtex_tile_put_aka_aware:nnnn #1#2#3#4
   {
     \bool_if:NTF \g__pongtex_no_aka_bool
       {
         \str_if_eq:nnTF {#1} {0}
           {
             \tl_if_in:nnTF { mps } {#2}
-              { \__pongtex_tile_put:nnn {5} {#2} {#3} }
-              { \__pongtex_tile_put:nnn {#1} {#2} {#3} }
+              { \__pongtex_tile_put:nnnn {5} {#2} {#3} {#4} }
+              { \__pongtex_tile_put:nnnn {#1} {#2} {#3} {#4} }
           }
-          { \__pongtex_tile_put:nnn {#1} {#2} {#3} }
+          { \__pongtex_tile_put:nnnn {#1} {#2} {#3} {#4} }
       }
-      { \__pongtex_tile_put:nnn {#1} {#2} {#3} }
+      { \__pongtex_tile_put:nnnn {#1} {#2} {#3} {#4} }
   }
+\cs_new_protected:Npn \__pongtex_tile_put_aka_aware:nnn #1#2#3
+  { \__pongtex_tile_put_aka_aware:nnnn {#1} {#2} {#3} { } }
 \cs_generate_variant:Nn \__pongtex_tile_put_aka_aware:nnn { Vnn }
+\cs_generate_variant:Nn \__pongtex_tile_put_aka_aware:nnnn { Vnnn }
 
 \cs_new_protected:Npn \__pongtex_gap_put:n #1
-  { \seq_put_right:Nn \l__pongtex_tiles_seq { { gap } {#1} { } { } } }
+  {
+    \seq_put_right:Nn \l__pongtex_tiles_seq { { gap } {#1} { } { } { } }
+    \bool_set_false:N \l__pongtex_last_concealed_kong_tail_bool
+  }
 
 \cs_new_protected:Npn \__pongtex_pending_set_last_orientation:n #1
   {
     \seq_pop_right:NNTF \l__pongtex_pending_seq \l__pongtex_tmp_tl
-      { \exp_last_unbraced:NV \__pongtex_pending_set_last_orientation_aux:nnn \l__pongtex_tmp_tl {#1} }
+      { \exp_last_unbraced:NV \__pongtex_pending_set_last_orientation_aux:nnnn \l__pongtex_tmp_tl {#1} }
       { \msg_error:nnn { pongtex } { missing-rotation-target } {#1} }
   }
-\cs_new_protected:Npn \__pongtex_pending_set_last_orientation_aux:nnn #1#2#3
-  { \seq_put_right:Nn \l__pongtex_pending_seq { {#1} {#3} } }
+\cs_new_protected:Npn \__pongtex_pending_set_last_orientation_aux:nnnn #1#2#3#4
+  { \seq_put_right:Nn \l__pongtex_pending_seq { {#1} {#4} {#3} } }
 
 \cs_new_protected:Npn \__pongtex_output_set_last_orientation:n #1
   {
     \seq_pop_right:NNTF \l__pongtex_tiles_seq \l__pongtex_tmp_tl
-      { \exp_last_unbraced:NV \__pongtex_output_set_last_orientation_aux:nnnnn \l__pongtex_tmp_tl {#1} }
+      { \exp_last_unbraced:NV \__pongtex_output_set_last_orientation_aux:nnnnnn \l__pongtex_tmp_tl {#1} }
       { \msg_error:nnn { pongtex } { missing-rotation-target } {#1} }
   }
-\cs_new_protected:Npn \__pongtex_output_set_last_orientation_aux:nnnnn #1#2#3#4#5
+\cs_new_protected:Npn \__pongtex_output_set_last_orientation_aux:nnnnnn #1#2#3#4#5#6
   {
     \str_if_eq:nnTF {#1} { tile }
-      { \seq_put_right:Nn \l__pongtex_tiles_seq { { tile } {#2} {#3} {#5} } }
+      { \seq_put_right:Nn \l__pongtex_tiles_seq { { tile } {#2} {#3} {#6} {#5} } }
       {
-        \seq_put_right:Nn \l__pongtex_tiles_seq { {#1} {#2} {#3} {#4} }
-        \msg_error:nnn { pongtex } { missing-rotation-target } {#5}
+        \seq_put_right:Nn \l__pongtex_tiles_seq { {#1} {#2} {#3} {#4} {#5} }
+        \msg_error:nnn { pongtex } { missing-rotation-target } {#6}
       }
   }
 
@@ -343,26 +377,97 @@
       { \__pongtex_pending_set_last_orientation:n {#1} }
   }
 
+\cs_new_protected:Npn \__pongtex_pending_set_last_overlay:n #1
+  {
+    \seq_pop_right:NNTF \l__pongtex_pending_seq \l__pongtex_tmp_tl
+      { \exp_last_unbraced:NV \__pongtex_pending_set_last_overlay_aux:nnnn \l__pongtex_tmp_tl {#1} }
+      { \msg_error:nnn { pongtex } { missing-overlay-target } {#1} }
+  }
+\cs_new_protected:Npn \__pongtex_pending_set_last_overlay_aux:nnnn #1#2#3#4
+  { \seq_put_right:Nn \l__pongtex_pending_seq { {#1} {#2} {#4} } }
+
+\cs_new_protected:Npn \__pongtex_output_set_last_overlay:n #1
+  {
+    \seq_pop_right:NNTF \l__pongtex_tiles_seq \l__pongtex_tmp_tl
+      { \exp_last_unbraced:NV \__pongtex_output_set_last_overlay_aux:nnnnnn \l__pongtex_tmp_tl {#1} }
+      { \msg_error:nnn { pongtex } { missing-overlay-target } {#1} }
+  }
+\cs_generate_variant:Nn \__pongtex_output_set_last_overlay:n { V }
+\cs_new_protected:Npn \__pongtex_output_set_last_overlay_aux:nnnnnn #1#2#3#4#5#6
+  {
+    \str_if_eq:nnTF {#1} { tile }
+      {
+        \tl_if_blank:nF {#6}
+          {
+            \bool_if:NT \l__pongtex_last_concealed_kong_tail_bool
+              { \msg_warning:nnn { pongtex } { concealed-kong-overlay } {#6} }
+          }
+        \seq_put_right:Nn \l__pongtex_tiles_seq { { tile } {#2} {#3} {#4} {#6} }
+      }
+      {
+        \seq_put_right:Nn \l__pongtex_tiles_seq { {#1} {#2} {#3} {#4} {#5} }
+        \msg_error:nnn { pongtex } { missing-overlay-target } {#6}
+      }
+  }
+
+\cs_new_protected:Npn \__pongtex_set_last_overlay:n #1
+  {
+    \seq_if_empty:NTF \l__pongtex_pending_seq
+      { \__pongtex_output_set_last_overlay:n {#1} }
+      { \__pongtex_pending_set_last_overlay:n {#1} }
+  }
+
 % -----------------------------------------------------------------------------
 % Parser
 % -----------------------------------------------------------------------------
+\quark_new:N \q__pongtex_parse_stop
+\quark_new:N \q__pongtex_parse_done
+
 \cs_new_protected:Npn \__pongtex_parse:n #1
   {
     \seq_clear:N \l__pongtex_tiles_seq
     \seq_clear:N \l__pongtex_pending_seq
-    \tl_set:Nx \l__pongtex_tmp_tl { \text_lowercase:n {#1} }
-    \tl_map_inline:Nn \l__pongtex_tmp_tl
-      { \__pongtex_parse_token:n {##1} }
+    \bool_set_false:N \l__pongtex_last_concealed_kong_tail_bool
+    \__pongtex_parse_loop:w #1 \q__pongtex_parse_stop ] \q__pongtex_parse_done
     \seq_if_empty:NF \l__pongtex_pending_seq
       {
         \tl_clear:N \l__pongtex_pending_digits_tl
         \seq_map_inline:Nn \l__pongtex_pending_seq
-          { \__pongtex_collect_pending_digits:nn ##1 }
+          { \__pongtex_collect_pending_digits:nnn ##1 }
         \msg_error:nnV { pongtex } { missing-suit } \l__pongtex_pending_digits_tl
       }
   }
 
-\cs_new_protected:Npn \__pongtex_collect_pending_digits:nn #1#2
+\cs_new_protected:Npn \__pongtex_parse_loop:w #1
+  {
+    \tl_if_eq:nnTF {#1} { \q__pongtex_parse_stop }
+      { \__pongtex_parse_finish:w }
+      {
+        \str_if_eq:nnTF {#1} { [ }
+          { \__pongtex_parse_overlay:w }
+          {
+            \__pongtex_parse_token:n {#1}
+            \__pongtex_parse_loop:w
+          }
+      }
+  }
+
+\cs_new_protected:Npn \__pongtex_parse_finish:w #1 \q__pongtex_parse_done { }
+
+\cs_new_protected:Npn \__pongtex_parse_overlay:w #1 ]
+  {
+    \tl_if_in:nnTF {#1} { \q__pongtex_parse_stop }
+      {
+        \msg_error:nn { pongtex } { unclosed-overlay }
+        \__pongtex_parse_finish:w
+      }
+      {
+        \__pongtex_set_last_overlay:n {#1}
+        \__pongtex_parse_loop:w
+      }
+  }
+
+\cs_new_protected:Npn \__pongtex_collect_pending_digits:nnn #1#2#3
   { \tl_put_right:Nn \l__pongtex_pending_digits_tl {#1} }
 
 \cs_new_protected:Npn \__pongtex_parse_token:n #1
@@ -370,24 +475,30 @@
     \tl_if_blank:nTF {#1}
       { }
       {
-        \tl_if_in:nnTF { 0123456789 } {#1}
-          { \__pongtex_pending_put:nn {#1} {0} }
+        \tl_set:Nx \l__pongtex_tmp_tl { \text_lowercase:n {#1} }
+        \exp_args:NV \__pongtex_parse_normalized_token:n \l__pongtex_tmp_tl
+      }
+  }
+
+\cs_new_protected:Npn \__pongtex_parse_normalized_token:n #1
+  {
+    \tl_if_in:nnTF { 0123456789 } {#1}
+      { \__pongtex_pending_put:nn {#1} {0} }
+      {
+        \tl_if_in:nnTF { mpsz } {#1}
+          { \__pongtex_flush_suit:n {#1} }
           {
-            \tl_if_in:nnTF { mpsz } {#1}
-              { \__pongtex_flush_suit:n {#1} }
+            \str_case:nnF {#1}
               {
-                \str_case:nnF {#1}
-                  {
-                    { - } { \__pongtex_handle_dash: }
-                    { x } { \__pongtex_tile_put:nnn { x } { } {0} }
-                    { ? } { \__pongtex_tile_put:nnn { ? } { } {0} }
-                    { ' } { \__pongtex_set_last_orientation:n {1} }
-                    { * } { \__pongtex_set_last_orientation:n {1} }
-                    { " } { \__pongtex_set_last_orientation:n {2} }
-                    { + } { \__pongtex_set_last_orientation:n {2} }
-                  }
-                  { \msg_error:nnn { pongtex } { invalid-token } {#1} }
+                { - } { \__pongtex_handle_dash: }
+                { x } { \__pongtex_tile_put:nnn { x } { } {0} }
+                { ? } { \__pongtex_tile_put:nnn { ? } { } {0} }
+                { ' } { \__pongtex_set_last_orientation:n {1} }
+                { * } { \__pongtex_set_last_orientation:n {1} }
+                { " } { \__pongtex_set_last_orientation:n {2} }
+                { + } { \__pongtex_set_last_orientation:n {2} }
               }
+              { \msg_error:nnn { pongtex } { invalid-token } {#1} }
           }
       }
   }
@@ -399,7 +510,7 @@
       {
         \tl_clear:N \l__pongtex_pending_digits_tl
         \seq_map_inline:Nn \l__pongtex_pending_seq
-          { \__pongtex_collect_pending_digits:nn ##1 }
+          { \__pongtex_collect_pending_digits:nnn ##1 }
         \__pongtex_gap_put:V \l__pongtex_pending_digits_tl
         \seq_clear:N \l__pongtex_pending_seq
       }
@@ -415,14 +526,14 @@
           { \__pongtex_flush_concealed_kong:n {#1} }
           {
             \seq_map_inline:Nn \l__pongtex_pending_seq
-              { \__pongtex_flush_pending_item:nnn ##1 {#1} }
+              { \__pongtex_flush_pending_item:nnnn ##1 {#1} }
           }
         \seq_clear:N \l__pongtex_pending_seq
       }
   }
 
-\cs_new_protected:Npn \__pongtex_flush_pending_item:nnn #1#2#3
-  { \__pongtex_tile_put_aka_aware:nnn {#1} {#3} {#2} }
+\cs_new_protected:Npn \__pongtex_flush_pending_item:nnnn #1#2#3#4
+  { \__pongtex_tile_put_aka_aware:nnnn {#1} {#4} {#2} {#3} }
 
 \cs_new_protected:Npn \__pongtex_detect_concealed_kong:
   {
@@ -430,22 +541,28 @@
     \int_compare:nNnT { \seq_count:N \l__pongtex_pending_seq } = {5}
       {
         \seq_get_left:NN \l__pongtex_pending_seq \l__pongtex_tmp_tl
-        \exp_last_unbraced:NV \__pongtex_remember_first_pending:nn \l__pongtex_tmp_tl
+        \exp_last_unbraced:NV \__pongtex_remember_first_pending:nnn \l__pongtex_tmp_tl
         \bool_set_true:N \l__pongtex_concealed_kong_bool
         \seq_map_inline:Nn \l__pongtex_pending_seq
-          { \__pongtex_check_concealed_kong_item:nn ##1 }
+          { \__pongtex_check_concealed_kong_item:nnn ##1 }
       }
   }
 
-\cs_new_protected:Npn \__pongtex_remember_first_pending:nn #1#2
+\cs_new_protected:Npn \__pongtex_remember_first_pending:nnn #1#2#3
   { \tl_set:Nn \l__pongtex_first_face_tl {#1} }
 
-\cs_new_protected:Npn \__pongtex_check_concealed_kong_item:nn #1#2
+\cs_new_protected:Npn \__pongtex_check_concealed_kong_item:nnn #1#2#3
   {
     \str_if_eq:VnF \l__pongtex_first_face_tl {#1}
       { \bool_set_false:N \l__pongtex_concealed_kong_bool }
     \int_compare:nNnF {#2} = {0}
       { \bool_set_false:N \l__pongtex_concealed_kong_bool }
+  }
+
+\cs_new_protected:Npn \__pongtex_remember_pending_overlay:nnn #1#2#3
+  {
+    \tl_if_blank:nF {#3}
+      { \tl_set:Nn \l__pongtex_tmpb_tl {#3} }
   }
 
 \cs_new_protected:Npn \__pongtex_flush_concealed_kong:n #1
@@ -454,6 +571,9 @@
     % back, two visible tiles, back.  For 55555m/p/s the visible pair is red 5
     % plus normal 5 by default; no-aka=1 turns that visible pair into two
     % regular fives.
+    \tl_clear:N \l__pongtex_tmpb_tl
+    \seq_map_inline:Nn \l__pongtex_pending_seq
+      { \__pongtex_remember_pending_overlay:nnn ##1 }
     \__pongtex_tile_put:nnn { x } { } {0}
     \str_if_eq:VnTF \l__pongtex_first_face_tl {5}
       {
@@ -472,6 +592,9 @@
         \__pongtex_tile_put_aka_aware:Vnn \l__pongtex_first_face_tl {#1} {0}
       }
     \__pongtex_tile_put:nnn { x } { } {0}
+    \bool_set_true:N \l__pongtex_last_concealed_kong_tail_bool
+    \tl_if_blank:VF \l__pongtex_tmpb_tl
+      { \__pongtex_output_set_last_overlay:V \l__pongtex_tmpb_tl }
   }
 
 % -----------------------------------------------------------------------------
@@ -491,7 +614,7 @@
     \__pongtex_parse:n {#1}
     \leavevmode
     \raisebox { -\l__pongtex_baseline_offset_dim }
-      { \seq_map_inline:Nn \l__pongtex_tiles_seq { \__pongtex_render_item:nnnn ##1 } }
+      { \seq_map_inline:Nn \l__pongtex_tiles_seq { \__pongtex_render_item:nnnnn ##1 } }
   }
 
 \cs_new_protected:Npn \__pongtex_render_river:n #1
@@ -505,7 +628,7 @@
     \__pongtex_parse:n {#1}
     \int_zero:N \l__pongtex_river_total_tiles_int
     \seq_map_inline:Nn \l__pongtex_tiles_seq
-      { \__pongtex_count_river_tile:nnnn ##1 }
+      { \__pongtex_count_river_tile:nnnnn ##1 }
     \leavevmode
     \vtop \bgroup
       \offinterlineskip
@@ -513,23 +636,23 @@
       \int_zero:N \l__pongtex_river_col_int
       \hbox \bgroup
         \seq_map_inline:Nn \l__pongtex_tiles_seq
-          { \__pongtex_render_river_item:nnnn ##1 }
+          { \__pongtex_render_river_item:nnnnn ##1 }
       \egroup
     \egroup
   }
 
-\cs_new_protected:Npn \__pongtex_count_river_tile:nnnn #1#2#3#4
+\cs_new_protected:Npn \__pongtex_count_river_tile:nnnnn #1#2#3#4#5
   {
     \str_if_eq:nnF {#1} { gap }
       { \int_incr:N \l__pongtex_river_total_tiles_int }
   }
 
-\cs_new_protected:Npn \__pongtex_render_river_item:nnnn #1#2#3#4
+\cs_new_protected:Npn \__pongtex_render_river_item:nnnnn #1#2#3#4#5
   {
     \str_if_eq:nnTF {#1} { gap }
       { \__pongtex_render_gap:n {#2} }
       {
-        \__pongtex_render_tile:nnn {#2} {#3} {#4}
+        \__pongtex_render_tile_with_overlay:nnnn {#2} {#3} {#4} {#5}
         \int_incr:N \l__pongtex_river_seen_tiles_int
         \int_incr:N \l__pongtex_river_col_int
         \int_compare:nT { \l__pongtex_river_cols_int > 0 }
@@ -549,15 +672,49 @@
       }
   }
 
-\cs_new_protected:Npn \__pongtex_render_item:nnnn #1#2#3#4
+\cs_new_protected:Npn \__pongtex_render_item:nnnnn #1#2#3#4#5
   {
     \str_if_eq:nnTF {#1} { gap }
       { \__pongtex_render_gap:n {#2} }
-      { \__pongtex_render_tile:nnn {#2} {#3} {#4} }
+      { \__pongtex_render_tile_with_overlay:nnnn {#2} {#3} {#4} {#5} }
   }
 
 \cs_new_protected:Npn \__pongtex_render_gap:n #1
   { \hspace { \dim_eval:n { #1 \l__pongtex_tile_width_dim / 7 } } }
+
+\cs_new_protected:Npn \__pongtex_render_tile_with_overlay:nnnn #1#2#3#4
+  {
+    \tl_if_blank:nTF {#4}
+      { \__pongtex_render_tile:nnn {#1} {#2} {#3} }
+      { \__pongtex_make_overlay_tile:nnnn {#1} {#2} {#3} {#4} }
+  }
+
+  \cs_new_protected:Npn \__pongtex_make_overlay_tile:nnnn #1#2#3#4
+  {
+    \hbox_set:Nn \l__pongtex_tile_box
+      { \__pongtex_render_tile:nnn {#1} {#2} {#3} }
+
+    \tikz [ baseline = (base.base), inner~sep = 0pt, outer~sep = 0pt ]
+      {
+        \node [ inner~sep = 0pt, outer~sep = 0pt ] (base)
+          { \box_use:N \l__pongtex_tile_box };
+
+        \exp_args:NV \__pongtex_make_overlay_node:nn
+          \l__pongtex_overlay_style_tl
+          {#4}
+        \path
+          (base.north) ++ (0,0.9em)
+          coordinate (overlay-top);
+
+        \path [ use~as~bounding~box ]
+          (base.south~west)
+          rectangle
+          (overlay-top -| base.north~east);
+      }
+  }
+
+\cs_new_protected:Npn \__pongtex_make_overlay_node:nn #1#2
+  { \node [ overlay, #1 ] at (base.north) {#2}; }
 
 \cs_new_protected:Npn \__pongtex_render_tile:nnn #1#2#3
   {
@@ -571,8 +728,7 @@
       }
   }
 
-
-  \cs_new_protected:Npn \__pongtex_make_symbol_tile:nn #1#2
+\cs_new_protected:Npn \__pongtex_make_symbol_tile:nn #1#2
   {
     \file_if_exist:nTF {#1}
       {
@@ -693,6 +849,7 @@
   {
     \dim_set_eq:NN \l__pongtex_tile_height_dim \g__pongtex_default_height_dim
     \fp_set_eq:NN  \l__pongtex_tile_scale_fp  \g__pongtex_default_scale_fp
+    \tl_set_eq:NN  \l__pongtex_overlay_style_tl \g__pongtex_overlay_style_tl
     \int_set_eq:NN \l__pongtex_river_cols_int \g__pongtex_river_cols_int
     \dim_set_eq:NN \l__pongtex_river_row_gap_dim \g__pongtex_river_row_gap_dim
   }
