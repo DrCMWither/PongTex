@@ -5,7 +5,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[2020/10/01]
 \RequirePackage{expl3}
-\ProvidesExplPackage{mahjong}{2026/07/01}{1.2.1}{Typeset Japanese Mahjong hands}
+\ProvidesExplPackage{mahjong}{2026/07/01}{1.3.0}{Typeset Japanese Mahjong hands}
 
 \RequirePackage{xparse}
 \RequirePackage{l3keys2e}
@@ -62,6 +62,46 @@
 
 \bool_gset_false:N \g__mahjong_back_recolor_bool
 
+\cs_new_protected:Npn \__mahjong_set_back_color_global:n #1
+  {
+    \tl_if_blank:nTF {#1}
+      {
+        \tl_gclear:N \g__mahjong_back_color_tl
+        \bool_gset_false:N \g__mahjong_back_recolor_bool
+      }
+      {
+        \str_if_eq:nnTF {#1} { none }
+          {
+            \tl_gclear:N \g__mahjong_back_color_tl
+            \bool_gset_false:N \g__mahjong_back_recolor_bool
+          }
+          {
+            \tl_gset:Nn \g__mahjong_back_color_tl {#1}
+            \bool_gset_true:N \g__mahjong_back_recolor_bool
+          }
+      }
+  }
+
+\cs_new_protected:Npn \__mahjong_set_back_color_local:n #1
+  {
+    \tl_if_blank:nTF {#1}
+      {
+        \tl_clear:N \g__mahjong_back_color_tl
+        \bool_set_false:N \g__mahjong_back_recolor_bool
+      }
+      {
+        \str_if_eq:nnTF {#1} { none }
+          {
+            \tl_clear:N \g__mahjong_back_color_tl
+            \bool_set_false:N \g__mahjong_back_recolor_bool
+          }
+          {
+            \tl_set:Nn \g__mahjong_back_color_tl {#1}
+            \bool_set_true:N \g__mahjong_back_recolor_bool
+          }
+      }
+  }
+
 \keys_define:nn { mahjong }
   {
     height   .dim_gset:N = \g__mahjong_default_height_dim,
@@ -69,25 +109,12 @@
     tile-dir .tl_gset:N  = \g__mahjong_tile_dir_tl,
 
     back-color .code:n =
-      {
-        \tl_if_blank:nTF {#1}
-          {
-            \tl_gclear:N \g__mahjong_back_color_tl
-            \bool_gset_false:N \g__mahjong_back_recolor_bool
-          }
-          {
-            \str_if_eq:nnTF {#1} { none }
-              {
-                \tl_gclear:N \g__mahjong_back_color_tl
-                \bool_gset_false:N \g__mahjong_back_recolor_bool
-              }
-              {
-                \tl_gset:Nn \g__mahjong_back_color_tl {#1}
-                \bool_gset_true:N \g__mahjong_back_recolor_bool
-              }
-          }
-      },
+      { \__mahjong_set_back_color_global:n {#1} },
     back-color .value_required:n = true,
+
+    color .code:n =
+      { \__mahjong_set_back_color_global:n {#1} },
+    color .value_required:n = true,
 
     back-filter .choice:,
     back-filter / hue .code:n =
@@ -480,12 +507,14 @@
 \cs_new_protected:Npn \mahjong_main:n #1
   { \mahjong_typeset_hand:n {#1} }
 
-\NewDocumentCommand \mahjong { O{\g__mahjong_default_height_dim} O{\g__mahjong_default_scale_fp} m }
+\NewDocumentCommand \mahjong { O{\g__mahjong_default_height_dim} O{\g__mahjong_default_scale_fp} o m }
   {
     \group_begin:
       \dim_set:Nn \l__mahjong_tile_height_dim {#1}
       \fp_set:Nn  \l__mahjong_tile_scale_fp  {#2}
-      \__mahjong_render_hand:n {#3}
+      \IfNoValueF {#3}
+        { \__mahjong_set_back_color_local:n {#3} }
+      \__mahjong_render_hand:n {#4}
     \group_end:
   }
 
