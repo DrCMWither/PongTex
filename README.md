@@ -106,7 +106,7 @@ This package uses an intuitive "number + letter" input syntax. The specific rule
 This package supports compilation using the standard `pdflatex` engine. To view the test results, you can directly compile the provided test file:
 
 ```bash
-pdflatex pongtex_doc.tex
+pdflatex pongtex-doc.tex
 
 ```
 
