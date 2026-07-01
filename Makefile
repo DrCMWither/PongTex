@@ -71,6 +71,7 @@ ctan: doc
 	     '$(PACKAGE)/*.hd' \
 	     '$(PACKAGE)/*.fls' \
 	     '$(PACKAGE)/*.fdb_latexmk' \
+		 '$(PACKAGE)/*.gitignore' \
 	     '$(PACKAGE)/doc/*.aux' \
 	     '$(PACKAGE)/doc/*.log' \
 	     '$(PACKAGE)/doc/*.out' \
