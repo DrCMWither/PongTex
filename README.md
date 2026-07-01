@@ -49,8 +49,8 @@ For developers accustomed to the LaTeX3 (expl3) programming style, the package a
 
 ```tex
 \ExplSyntaxOn
-\mahjong_main:n {111m456s111p11122z}
-\mahjong:n      {111m456s111p11122z}
+\pongtex_main:n {111m456s111p11122z}
+\pongtex:n      {111m456s111p11122z}
 \ExplSyntaxOff
 
 ```
@@ -61,7 +61,7 @@ For developers accustomed to the LaTeX3 (expl3) programming style, the package a
 The back of a tile (`x`) can be recoloured with `color` either as a package option or later through `\pongtexsetup`:
 
 ```tex
-\usepackage[height=1.5\baselineskip,color=blue!70!black]{mahjong}
+\usepackage[height=1.5\baselineskip,color=blue!70!black]{pongtex}
 
 % Change it later
 \pongtexsetup{color=teal!65!black}
@@ -71,7 +71,7 @@ The back of a tile (`x`) can be recoloured with `color` either as a package opti
 \pongtexsetup{color=none}
 ```
 
-This recolouring uses a clipping mask rather than a blend overlay.  Since `tiles/mahjong-Back.pdf` consists only of a solid red shape and transparent corners, the package clips to the exact original back outline and fills that mask with the requested `xcolor` colour.
+This recolouring uses a clipping mask rather than a blend overlay.  Since `tiles/pongtex-Back.pdf` consists only of a solid red shape and transparent corners, the package clips to the exact original back outline and fills that mask with the requested `xcolor` colour.
 
 ## Syntax Guide
 
