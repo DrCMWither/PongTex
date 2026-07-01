@@ -8,7 +8,7 @@
 % This file is distributed under the MIT License; see LICENSE.
 %
 %<*driver>
-\ProvidesFile{pongtex.dtx}[2026/07/01 v2.0.0 PongTeX documented source]
+\ProvidesFile{pongtex.dtx}[2026/07/01 v2.2.0 PongTeX documented source]
 \documentclass{ltxdoc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
@@ -33,7 +33,7 @@
 %
 % \title{The \textsf{pongtex} Package: Documented Source}
 % \author{Lilia Chen May wither}
-% \date{Version 2.0.0, 2026-07-01}
+% \date{Version 2.2.0, 2026-07-01}
 % \maketitle
 %
 % \begin{abstract}
@@ -83,7 +83,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[2020/10/01]
 \RequirePackage{expl3}
-\ProvidesExplPackage{pongtex}{2026/07/01}{2.0.0}{Typeset Japanese/Riichi Mahjong hands and discard rivers}
+\ProvidesExplPackage{pongtex}{2026/07/01}{2.2.0}{Typeset Japanese/Riichi Mahjong hands and discard rivers}
 
 \RequirePackage{xparse}
 \RequirePackage{l3keys2e}
@@ -100,7 +100,7 @@
 % -----------------------------------------------------------------------------
 \msg_new:nnnn { pongtex } { invalid-token }
   { Token~'#1'~is~not~valid~in~Mahjong~MPSZ~notation. }
-  { Valid~tokens~are~0--9,~m,~p,~s,~z,~x,~?,~-,~',~",~*,~+,~[text],~and~spaces. }
+  { Valid~tokens~are~0--9,~m,~p,~s,~z,~x,~?,~-,~',~",~*,~+,~[text],~\mj\{tile\},~and~spaces. }
 
 \msg_new:nnnn { pongtex } { unknown-tile }
   { I~cannot~find~tile~'#1'. }
@@ -130,6 +130,18 @@
   { Overlay~text~'#1'~is~attached~to~the~final~back~tile~of~a~concealed~kong. }
   { This~warning~confirms~that~the~postfix~annotation~targets~the~expanded~kong~tail. }
 
+\msg_new:nnnn { pongtex } { nested-mj }
+  { The~\mj~command~cannot~be~nested. }
+  { PongTeX~only~expands~one~level~of~\mj\{...\}. }
+
+\msg_new:nnnn { pongtex } { inline-mj-single-tile }
+  { Inline~\mj\{#1\}~must~contain~exactly~one~Mahjong~tile. }
+  { Use~one~simple~tile~such~as~\mj\{2z\}.~Do~not~put~a~hand,~gap,~or~meld~inside~inline~\mj. }
+
+\msg_new:nnnn { pongtex } { inline-mj-tile-only }
+  { Inline~\mj\{#1\}~did~not~produce~a~plain~tile. }
+  { Inline~\mj~inside~\mahjong\{...\}~is~reserved~for~one~drawn~tile. }
+
 \msg_new:nnnn { pongtex } { invalid-bool }
   { Boolean~option~'#1'~must~be~one~of~true,~false,~1,~0,~yes,~no,~on,~or~off. }
   { Use~for~example~no-aka=1~to~replace~red~fives~with~regular~fives. }
@@ -156,7 +168,14 @@
 
 \tl_gclear:N \g__pongtex_back_color_tl
 \tl_gset:Nn \g__pongtex_overlay_style_tl
-  { font = \scriptsize, align = center, anchor = south, inner~sep = 0.2pt, outer~sep = 0pt }
+  {
+    font = \scriptsize,
+    align = center,
+    anchor = south,
+    inner~sep = 0.2pt,
+    outer~sep = 0pt,
+    yshift = 0.35em
+  }
 
 \bool_gset_false:N \g__pongtex_back_recolor_bool
 \bool_gset_false:N \g__pongtex_no_aka_bool
@@ -277,8 +296,13 @@
 \tl_new:N  \l__pongtex_file_tl
 \box_new:N \l__pongtex_tile_box
 \int_new:N \l__pongtex_tmp_int
+\int_new:N \l__pongtex_mj_depth_int
 \bool_new:N \l__pongtex_concealed_kong_bool
 \bool_new:N \l__pongtex_last_concealed_kong_tail_bool
+
+\tl_new:N   \g__pongtex_inline_mj_face_tl
+\tl_new:N   \g__pongtex_inline_mj_suit_tl
+\bool_new:N \g__pongtex_inline_mj_valid_bool
 
 \keys_define:nn { pongtex / local }
   {
@@ -305,6 +329,7 @@
 % Pending tuple: {face}{orientation}{overlay}
 % Output tuple:  {kind}{a}{b}{c}{overlay}
 %   tile = {tile}{face}{suit}{orientation}{overlay}; suit may be empty for x and ?
+%   draw = {draw}{face}{suit}{ }{ }; drawn tile rendered sideways above the hand row
 %   gap  = {gap}{n}{ }{ }{ }; n means n/7 of one tile width
 % -----------------------------------------------------------------------------
 \cs_new_protected:Npn \__pongtex_pending_put:nn #1#2
@@ -344,6 +369,13 @@
     \seq_put_right:Nn \l__pongtex_tiles_seq { { gap } {#1} { } { } { } }
     \bool_set_false:N \l__pongtex_last_concealed_kong_tail_bool
   }
+
+\cs_new_protected:Npn \__pongtex_draw_put:nn #1#2
+  {
+    \seq_put_right:Nn \l__pongtex_tiles_seq { { draw } {#1} {#2} { } { } }
+    \bool_set_false:N \l__pongtex_last_concealed_kong_tail_bool
+  }
+\cs_generate_variant:Nn \__pongtex_draw_put:nn { VV }
 
 \cs_new_protected:Npn \__pongtex_pending_set_last_orientation:n #1
   {
@@ -443,13 +475,72 @@
     \tl_if_eq:nnTF {#1} { \q__pongtex_parse_stop }
       { \__pongtex_parse_finish:w }
       {
-        \str_if_eq:nnTF {#1} { [ }
-          { \__pongtex_parse_overlay:w }
+        \token_if_eq_meaning:NNTF #1 \mj
           {
-            \__pongtex_parse_token:n {#1}
-            \__pongtex_parse_loop:w
+            \int_compare:nNnTF { \l__pongtex_mj_depth_int } > {0}
+              { \__pongtex_parse_nested_mj:n }
+              { \__pongtex_parse_inline_mj:n }
+          }
+          {
+            \str_if_eq:nnTF {#1} { [ }
+              { \__pongtex_parse_overlay:w }
+              {
+                \__pongtex_parse_token:n {#1}
+                \__pongtex_parse_loop:w
+              }
           }
       }
+  }
+
+\cs_new_protected:Npn \__pongtex_parse_nested_mj:n #1
+  {
+    \msg_error:nnn { pongtex } { nested-mj } {#1}
+    \__pongtex_parse_loop:w
+  }
+
+\cs_new_protected:Npn \__pongtex_parse_inline_mj:n #1
+  {
+    \seq_if_empty:NF \l__pongtex_pending_seq
+      {
+        \tl_clear:N \l__pongtex_pending_digits_tl
+        \seq_map_inline:Nn \l__pongtex_pending_seq
+          { \__pongtex_collect_pending_digits:nnn ##1 }
+        \msg_error:nnV { pongtex } { missing-suit } \l__pongtex_pending_digits_tl
+        \seq_clear:N \l__pongtex_pending_seq
+      }
+    \__pongtex_draw_put_from_notation:n {#1}
+    \__pongtex_parse_loop:w
+  }
+
+\cs_new_protected:Npn \__pongtex_draw_put_from_notation:n #1
+  {
+    \bool_gset_false:N \g__pongtex_inline_mj_valid_bool
+    \tl_gclear:N \g__pongtex_inline_mj_face_tl
+    \tl_gclear:N \g__pongtex_inline_mj_suit_tl
+    \group_begin:
+      \int_incr:N \l__pongtex_mj_depth_int
+      \__pongtex_parse:n {#1}
+      \int_compare:nNnTF { \seq_count:N \l__pongtex_tiles_seq } = {1}
+        {
+          \seq_get_left:NN \l__pongtex_tiles_seq \l__pongtex_tmp_tl
+          \exp_last_unbraced:NV \__pongtex_extract_inline_mj_tile:nnnnnn
+            \l__pongtex_tmp_tl {#1}
+        }
+        { \msg_error:nnn { pongtex } { inline-mj-single-tile } {#1} }
+    \group_end:
+    \bool_if:NT \g__pongtex_inline_mj_valid_bool
+      { \__pongtex_draw_put:VV \g__pongtex_inline_mj_face_tl \g__pongtex_inline_mj_suit_tl }
+  }
+
+\cs_new_protected:Npn \__pongtex_extract_inline_mj_tile:nnnnnn #1#2#3#4#5#6
+  {
+    \str_if_eq:nnTF {#1} { tile }
+      {
+        \tl_gset:Nn \g__pongtex_inline_mj_face_tl {#2}
+        \tl_gset:Nn \g__pongtex_inline_mj_suit_tl {#3}
+        \bool_gset_true:N \g__pongtex_inline_mj_valid_bool
+      }
+      { \msg_error:nnn { pongtex } { inline-mj-tile-only } {#6} }
   }
 
 \cs_new_protected:Npn \__pongtex_parse_finish:w #1 \q__pongtex_parse_done { }
@@ -652,7 +743,9 @@
     \str_if_eq:nnTF {#1} { gap }
       { \__pongtex_render_gap:n {#2} }
       {
-        \__pongtex_render_tile_with_overlay:nnnn {#2} {#3} {#4} {#5}
+        \str_if_eq:nnTF {#1} { draw }
+          { \__pongtex_render_draw_tile:nn {#2} {#3} }
+          { \__pongtex_render_tile_with_overlay:nnnn {#2} {#3} {#4} {#5} }
         \int_incr:N \l__pongtex_river_seen_tiles_int
         \int_incr:N \l__pongtex_river_col_int
         \int_compare:nT { \l__pongtex_river_cols_int > 0 }
@@ -674,8 +767,11 @@
 
 \cs_new_protected:Npn \__pongtex_render_item:nnnnn #1#2#3#4#5
   {
-    \str_if_eq:nnTF {#1} { gap }
-      { \__pongtex_render_gap:n {#2} }
+    \str_case:nnF {#1}
+      {
+        { gap }  { \__pongtex_render_gap:n {#2} }
+        { draw } { \__pongtex_render_draw_tile:nn {#2} {#3} }
+      }
       { \__pongtex_render_tile_with_overlay:nnnn {#2} {#3} {#4} {#5} }
   }
 
@@ -702,19 +798,37 @@
         \exp_args:NV \__pongtex_make_overlay_node:nn
           \l__pongtex_overlay_style_tl
           {#4}
-        \path
-          (base.north) ++ (0,0.9em)
-          coordinate (overlay-top);
 
         \path [ use~as~bounding~box ]
           (base.south~west)
           rectangle
-          (overlay-top -| base.north~east);
+          (base.north~east |- pongtexoverlay.north);
       }
   }
 
 \cs_new_protected:Npn \__pongtex_make_overlay_node:nn #1#2
-  { \node [ overlay, #1 ] at (base.north) {#2}; }
+  {
+    \node [ #1, overlay ] (pongtexoverlay) at (base.north) {#2};
+  }
+\cs_new_protected:Npn \__pongtex_render_draw_tile:nn #1#2
+  {
+    \hbox_to_wd:nn { 0pt }
+      {
+        \tikz [ baseline = (base.base), inner~sep = 0pt, outer~sep = 0pt ]
+          {
+            % This phantom only provides the hand-height reference.
+            \node [ inner~sep = 0pt, outer~sep = 0pt ] (base)
+              { \phantom { \__pongtex_render_tile:nnn {#1} {#2} {0} } };
+            \node [
+              inner~sep = 0pt,
+              outer~sep = 0pt,
+              anchor = south~west
+            ] at (base.north~west)
+              { \__pongtex_render_tile:nnn {#1} {#2} {1} };
+          }
+        \hss
+      }
+  }
 
 \cs_new_protected:Npn \__pongtex_render_tile:nnn #1#2#3
   {
@@ -869,6 +983,25 @@
       { \keys_set:nn { pongtex / local } {#4} }
   }
 
+\cs_new_protected:Npn \__pongtex_ensure_local_defaults:
+  {
+    \dim_compare:nNnT { \l__pongtex_tile_height_dim } = { 0pt }
+      { \__pongtex_set_local_defaults: }
+  }
+
+\cs_new_protected:Npn \__pongtex_mj:n #1
+  {
+    \int_compare:nNnTF { \l__pongtex_mj_depth_int } > {0}
+      { \msg_error:nnn { pongtex } { nested-mj } {#1} }
+      {
+        \group_begin:
+          \__pongtex_ensure_local_defaults:
+          \int_incr:N \l__pongtex_mj_depth_int
+          \__pongtex_render_hand:n {#1}
+        \group_end:
+      }
+  }
+
 \cs_new_protected:Npn \pongtex_typeset_hand:n #1
   {
     \group_begin:
@@ -890,6 +1023,9 @@
 
 \cs_new_protected:Npn \pongtexriver:n #1
   { \pongtex_typeset_river:n {#1} }
+
+\NewDocumentCommand \mj { m }
+  { \__pongtex_mj:n {#1} }
 
 \NewDocumentCommand \mahjong { O{\g__pongtex_default_height_dim} O{\g__pongtex_default_scale_fp} o O{} m }
   {

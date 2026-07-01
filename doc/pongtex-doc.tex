@@ -22,7 +22,7 @@
 
 \title{The \pkg{pongtex} Package\\\large Typesetting Riichi Mahjong Hands and Discard Rivers}
 \author{Lilia Chen May Wither}
-\date{Version 2.0.0, 2026-07-01}
+\date{Version 2.2.0, 2026-07-01}
 
 \begin{document}
 \maketitle
@@ -225,18 +225,39 @@ breaks tiles into rows.  The row length is controlled by \texttt{river-cols}.
 The \cmd{\mahjong} command supports text annotations.  Use \texttt{[]} in
 \cmd{\mahjong} to attach a note above the previous tile.
 
-\begin{longtable}{@{}p{0.5\linewidth}p{0.5\linewidth}@{}}
+Annotations may contain ordinary \TeX{} material.  Mahjong tiles inside an
+annotation are rendered only when they are explicitly wrapped in \cmd{\mj}.
+For example, \texttt{[waiting \cmd{\mj}{3m}]} prints the text
+"waiting" followed by a small mahjong tile in the annotation.  The
+\cmd{\mj} command is parsed only one level deep inside annotations.
+
+The \cmd{\mj} command may also be used directly inside \cmd{\mahjong}.  In
+that case, its argument must contain exactly one tile.  The tile is typeset
+as a normal-size rotated tile above the hand, which is useful for showing a
+drawn tile.
+
+\begin{longtable}{@{}p{0.48\linewidth}p{0.48\linewidth}@{}}
   \toprule
   Input & Output \\
   \midrule
-  \code{111m111s111p2z2-3*333z7-2z[waiting]} & \mahjong{111m111s111p2z2-3*333z7-2z[waiting]} \\
-  \code{33333z[concealed kong]} & \mahjong{33333z[concealed kong]} \\
+  \code{111m111s111p2z2-3*333z7-2z[waiting]} &
+    \mahjong{111m111s111p2z2-3*333z7-2z[waiting]} \\
+  \code{111m113s111p2z2-3*333z7-2z[discard \mj{3s},\\ waiting \mj{1s2-2z}]} &
+    \mahjong{111m113s111p2z2-3*333z7-2z[discard \mj{3s},\\ waiting \mj{1s2-2z}]} \\
+  \code{123m456p789s\mj{2z}11z} &
+    \mahjong{123m456p789s\mj{2z}11z} \\
+  \code{33333z[concealed kong]} &
+    \mahjong{33333z[concealed kong]} \\
   \bottomrule
   \end{longtable}
 
-When a note is added to the fifth tile on the concealed kong, a warning
+When a note is added to the fifth tile of a concealed kong shorthand, a
+warning
 \texttt{Overlay text '<overlay text>' is attached to the final back tile of
-a concealed kong.} will be triggered and the note will be moved to the fourth tile.
+a concealed kong.}
+will be triggered.  Since a concealed kong is rendered as four tiles, the
+note is moved to the fourth rendered tile, namely the final back tile.
+
 
 \section{Expl3 interface}
 
