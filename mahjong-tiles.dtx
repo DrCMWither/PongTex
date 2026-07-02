@@ -146,6 +146,14 @@
   { Aka~option~'#1'~must~be~one~of~0,~1,~or~2. }
   { Use~aka=0~for~no~red~fives,~aka=1~for~normal~red~fives,~or~aka=2~for~an~extra~red~5p~in~concealed~kongs. }
 
+\msg_new:nnnn { mahjong-tiles } { deprecated-no-aka }
+  { Option~'#1'~is~deprecated;~use~'#2'~instead. }
+  { The~legacy~no-aka~option~is~accepted~for~compatibility~only. }
+
+\msg_new:nnnn { mahjong-tiles } { invalid-no-aka }
+  { No-aka~option~'#1'~must~be~one~of~0,~1,~false,~or~true. }
+  { Use~aka=0~instead~of~no-aka=1,~or~aka=1~instead~of~no-aka=0. }
+
 % -----------------------------------------------------------------------------
 % Package options and state
 % -----------------------------------------------------------------------------
@@ -242,6 +250,65 @@
       { \msg_error:nnn { mahjong-tiles } { invalid-aka } { aka=#1 } }
   }
 
+\cs_new_protected:Npn \__mahjongtiles_warn_deprecated_no_aka:nn #1#2
+  { \msg_warning:nnnn { mahjong-tiles } { deprecated-no-aka } {#1} {#2} }
+
+\cs_new_protected:Npn \__mahjongtiles_set_no_aka_global:n #1
+  {
+    \str_case:nnF {#1}
+      {
+        { 1 }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=1 } { aka=0 }
+            \int_gset:Nn \g__mahjongtiles_aka_int {0}
+          }
+        { true }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=true } { aka=0 }
+            \int_gset:Nn \g__mahjongtiles_aka_int {0}
+          }
+        { 0 }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=0 } { aka=1 }
+            \int_gset:Nn \g__mahjongtiles_aka_int {1}
+          }
+        { false }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=false } { aka=1 }
+            \int_gset:Nn \g__mahjongtiles_aka_int {1}
+          }
+      }
+      { \msg_error:nnn { mahjong-tiles } { invalid-no-aka } { no-aka=#1 } }
+  }
+
+\cs_new_protected:Npn \__mahjongtiles_set_no_aka_local:n #1
+  {
+    \str_case:nnF {#1}
+      {
+        { 1 }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=1 } { aka=0 }
+            \int_set:Nn \g__mahjongtiles_aka_int {0}
+          }
+        { true }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=true } { aka=0 }
+            \int_set:Nn \g__mahjongtiles_aka_int {0}
+          }
+        { 0 }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=0 } { aka=1 }
+            \int_set:Nn \g__mahjongtiles_aka_int {1}
+          }
+        { false }
+          {
+            \__mahjongtiles_warn_deprecated_no_aka:nn { no-aka=false } { aka=1 }
+            \int_set:Nn \g__mahjongtiles_aka_int {1}
+          }
+      }
+      { \msg_error:nnn { mahjong-tiles } { invalid-no-aka } { no-aka=#1 } }
+  }
+
 \keys_define:nn { mahjong-tiles }
   {
     height   .dim_gset:N = \g__mahjongtiles_default_height_dim,
@@ -261,6 +328,10 @@
     aka .code:n =
       { \__mahjongtiles_set_aka_global:n {#1} },
     aka .default:n = 1,
+
+    no-aka .code:n =
+      { \__mahjongtiles_set_no_aka_global:n {#1} },
+    no-aka .default:n = 1,
   }
 \ProcessKeysOptions { mahjong-tiles }
 
@@ -312,6 +383,10 @@
     aka .code:n =
       { \__mahjongtiles_set_aka_local:n {#1} },
     aka .default:n = 1,
+
+    no-aka .code:n =
+      { \__mahjongtiles_set_no_aka_local:n {#1} },
+    no-aka .default:n = 1,
   }
 
 % -----------------------------------------------------------------------------
@@ -1146,10 +1221,14 @@
     \tl_if_in:nnTF {#1} { = }
       { \keys_set:nn { mahjong-tiles / local } {#1} }
       {
-        \dim_set:Nn \l__mahjongtiles_tile_height_dim {#1}
-        \fp_set:Nn  \l__mahjongtiles_tile_scale_fp  {#2}
-        \IfNoValueF {#3}
-          { \__mahjongtiles_set_back_color_local:n {#3} }
+        \str_if_eq:nnTF {#1} { no-aka }
+          { \keys_set:nn { mahjong-tiles / local } {#1} }
+          {
+            \dim_set:Nn \l__mahjongtiles_tile_height_dim {#1}
+            \fp_set:Nn  \l__mahjongtiles_tile_scale_fp  {#2}
+            \IfNoValueF {#3}
+              { \__mahjongtiles_set_back_color_local:n {#3} }
+          }
       }
     \tl_if_blank:nF {#4}
       { \keys_set:nn { mahjong-tiles / local } {#4} }
