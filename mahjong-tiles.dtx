@@ -33,7 +33,7 @@
 %
 % \title{The \textsf{mahjong-tiles} Package: Documented Source}
 % \author{Lilia Chen May wither}
-% \date{Version 2.4.0, 2026-07-04}
+% \date{Version 2.6.0, 2026-07-04}
 % \maketitle
 %
 % \begin{abstract}
@@ -84,7 +84,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[2020/10/01]
 \RequirePackage{expl3}
-\ProvidesExplPackage{mahjong-tiles}{2026/07/04}{2.4.0}{Typeset Japanese/Riichi Mahjong hands, flower tiles, discard rivers, and score sticks}
+\ProvidesExplPackage{mahjong-tiles}{2026/07/04}{2.6.0}{Typeset Japanese/Riichi Mahjong hands, flower tiles, discard rivers, and score sticks}
 
 \RequirePackage{xparse}
 \RequirePackage{l3keys2e}
@@ -192,7 +192,7 @@
 \dim_gset:Nn \g__mahjongtiles_river_row_gap_dim { 0pt }
 \tl_gset:Nn  \g__mahjongtiles_stick_dir_tl      { assets/stick }
 \dim_gset:Nn \g__mahjongtiles_stick_height_dim  { \baselineskip }
-\fp_gset:Nn  \g__mahjongtiles_stick_scale_fp   { 1 }
+\fp_gset:Nn  \g__mahjongtiles_stick_scale_fp   { 0.5 }
 \dim_gset:Nn \g__mahjongtiles_stick_sep_dim     { .6em }
 
 \tl_new:N   \g__mahjongtiles_back_color_tl
