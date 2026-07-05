@@ -9,8 +9,8 @@
 \hypersetup{
   pdftitle={The mahjong-tiles Package},
   pdfauthor={Lilia Chen May Wither},
-  pdfsubject={Typesetting Riichi Mahjong hands and discard rivers},
-  pdfkeywords={LaTeX, Mahjong, Riichi, MPSZF, CTAN}
+  pdfsubject={Typesetting Riichi Mahjong hands, flower tiles, discard rivers, and score sticks},
+  pdfkeywords={LaTeX, Mahjong, Riichi, MPSZF, flower tiles, score sticks, CTAN}
 }
 \usepackage{mahjong-tiles}
 
@@ -20,8 +20,9 @@
 \newcommand\cmd[1]{\texttt{\string#1}}
 \newcommand\meta[1]{\ensuremath{\langle}\textit{#1}\ensuremath{\rangle}}
 \newcommand\code[1]{\texttt{\detokenize{#1}}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 
-\title{The \pkg{mahjong-tiles} Package\\\large Typesetting Riichi Mahjong Hands and Discard Rivers}
+\title{The \pkg{mahjong-tiles} Package\\\large Typesetting Riichi Mahjong Hands, Flower Tiles, Discard Rivers, and Score Sticks}
 \author{Lilia Chen May Wither}
 \date{Version 2.6.0, 2026-07-04}
 
@@ -31,31 +32,15 @@
 \begin{abstract}
 \pkg{mahjong-tiles} typesets Japanese/Riichi Mahjong tiles from compact MPSZF notation.
 It provides a document command, \cmd{\mahjong}, for hands and melds, and
-\cmd{\mahjongriver} for discard rivers,and \cmd{\stick} for score-stick
-images.  It supports red fives, face-down and blank tiles, rotated and stacked
-tiles, concealed-kong shorthand, local and global size options, and recolouring of
-tile backs.
+\cmd{\mahjongriver} for discard rivers, and \cmd{\stick} for score-stick
+images.  It supports red fives, flower tiles, face-down and blank tiles, rotated
+and stacked tiles, concealed-kong shorthand, overlay notes, local and global size
+options, and recolouring of tile backs.
 \end{abstract}
 
 \section{Loading the package}
 
 A minimal document looks like this.
-
-
-
-If you are working from the CTAN source archive, generate the runtime package file first:
-
-\begin{verbatim}
-latex mahjong-tiles.ins
-\end{verbatim}
-
-The distributed user manual lives in \texttt{doc/mahjong-tiles-doc.pdf};
-
-Its source is \texttt{doc/mahjong-tiles-doc.tex};
-
-The package implementation source is \texttt{mahjong-tiles.dtx};
-
-And \texttt{mahjong-tiles.ins} extracts \texttt{mahjong-tiles.sty}.
 
 \begin{verbatim}
 \documentclass{article}
@@ -65,9 +50,25 @@ And \texttt{mahjong-tiles.ins} extracts \texttt{mahjong-tiles.sty}.
 \end{document}
 \end{verbatim}
 
-The package expects the PDF artwork in the \texttt{tiles/} directory.  With the
-default setting, \texttt{mahjong-tiles.sty} and \texttt{tiles/} should be installed in
-the same TeX-searchable package directory.
+If you are working from the CTAN source archive, generate the runtime package file first:
+
+\begin{verbatim}
+latex mahjong-tiles.ins
+\end{verbatim}
+
+The distributed user manual is \path{doc/mahjong-tiles-doc.pdf}, and its
+source is \path{doc/mahjong-tiles-doc.tex}.  The documented implementation is
+\path{mahjong-tiles.dtx}; \path{mahjong-tiles.ins} extracts the runtime style
+file.
+
+With the default artwork paths, install these items together in the same
+TeX-searchable package directory:
+
+\begin{verbatim}
+mahjong-tiles.sty
+tiles/
+assets/stick/
+\end{verbatim}
 
 \section{Package options}
 
@@ -85,7 +86,7 @@ Options can be supplied when loading the package or changed later with
 \mahjongtilessetup{height=1.5\baselineskip,scale=0.75,color=teal!65!black,aka=1}
 \end{verbatim}
 
-\begin{longtable}{@{}p{0.25\linewidth}p{0.22\linewidth}p{0.45\linewidth}@{}}
+\begin{longtable}{@{}L{0.25\linewidth}L{0.22\linewidth}L{0.45\linewidth}@{}}
 \toprule
 Option & Default & Description \\
 \midrule
@@ -96,10 +97,11 @@ Option & Default & Description \\
 \texttt{aka} & \texttt{1} & Red-five mode: \texttt{0} disables red fives and maps \texttt{0m}, \texttt{0p}, and \texttt{0s} to regular fives; \texttt{1} renders them normally; \texttt{2} also makes \texttt{55555p} show an extra red five pin in concealed-kong shorthand. \\
 \texttt{river-cols} & \texttt{6} & Number of tiles per discard-river row. \\
 \texttt{river-row-gap} & \texttt{0pt} & Vertical gap between discard-river rows. \\
+\texttt{overlay-style} & TikZ node options & Style applied to overlay notes. \\
 \texttt{stick-dir} & \texttt{assets/stick} & Directory containing the score-stick PDF files. \\
 \texttt{stick-height} & \verb|\baselineskip| & Height of one upright score-stick image. \\
 \texttt{stick-scale} & \texttt{.5} & Scale factor applied to score-stick images. \\
-\texttt{stick-sep} & \texttt{.5em} & Horizontal space between different score-stick groups. \\
+\texttt{stick-sep} & \texttt{.6em} & Horizontal space between different score-stick groups. \\
 \bottomrule
 \end{longtable}
 
@@ -133,13 +135,13 @@ for honors, and \texttt{f} for flower tiles.
      \textbf{p} & \mahjong{0p} & \mahjong{1p} & \mahjong{2p} & \mahjong{3p} & \mahjong{4p} & \mahjong{5p} & \mahjong{6p} & \mahjong{7p} & \mahjong{8p} & \mahjong{9p} \\
      \textbf{m} & \mahjong{0m} & \mahjong{1m} & \mahjong{2m} & \mahjong{3m} & \mahjong{4m} & \mahjong{5m} & \mahjong{6m} & \mahjong{7m} & \mahjong{8m} & \mahjong{9m} \\
      \textbf{z} & & \mahjong{1z} & \mahjong{2z} & \mahjong{3z} & \mahjong{4z} & \mahjong{5z} & \mahjong{6z} & \mahjong{7z} & & \\
-     \textbf{f} & \mahjong{0f} & \mahjong{1f} & \mahjong{2f} & \mahjong{3f} & \mahjong{4f} & \mahjong{5f} & \mahjong{6f} & \mahjong{7f} & \mahjong{8f} &
+     \textbf{f} & \mahjong{0f} & \mahjong{1f} & \mahjong{2f} & \mahjong{3f} & \mahjong{4f} & \mahjong{5f} & \mahjong{6f} & \mahjong{7f} & \mahjong{8f} & \\
   \end{tabular}
 \end{table}
 
 The table below shows some examples of combinations.
 
-\begin{longtable}{@{}p{0.32\linewidth}p{0.58\linewidth}@{}}
+\begin{longtable}{@{}L{0.32\linewidth}L{0.58\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -153,7 +155,7 @@ Input & Output \\
 
 \subsection{Special tokens}
 
-\begin{longtable}{@{}p{0.18\linewidth}p{0.72\linewidth}@{}}
+\begin{longtable}{@{}L{0.18\linewidth}L{0.72\linewidth}@{}}
 \toprule
 Token & Meaning \\
 \midrule
@@ -171,7 +173,7 @@ The marker \texttt{*} or an apostrophe rotates the preceding tile sideways.  For
 ordinary tiles, the marker \texttt{+} or a double quote stacks two sideways
 copies of the preceding tile, which is useful for kan notation.
 
-There is one red-five edge syntax for upgraded-kan notation.  With \texttt{aka}
+There is also red-five edge syntax for upgraded-kan notation.  With \texttt{aka}
 enabled, \texttt{0m"}, \texttt{0p"}, and \texttt{0s"} produce a mixed sideways
 stack with the red five at the bottom and the regular five at the top.  Repeating
 the stack marker twice, as in \texttt{0p""} or \texttt{0p++}, flips the red five
@@ -179,7 +181,7 @@ to the top.  Three markers, \texttt{0p"""} or \texttt{0p+++}, force two red five
 and deliberately ignore \texttt{aka}.  The same rule applies to \texttt{m},
 \texttt{p}, and \texttt{s}.
 
-\begin{longtable}{@{}p{0.36\linewidth}p{0.54\linewidth}@{}}
+\begin{longtable}{@{}L{0.36\linewidth}L{0.54\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -199,7 +201,7 @@ Set \texttt{aka=0} to suppress red fives and render those inputs as regular
 fives.  Set \texttt{aka=2} to keep normal red fives and add one more red five
 pin in the \texttt{55555p} concealed-kong shorthand.
 
-\begin{longtable}{@{}p{0.36\linewidth}p{0.54\linewidth}@{}}
+\begin{longtable}{@{}L{0.36\linewidth}L{0.54\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -217,7 +219,7 @@ the visible pair is controlled by \texttt{aka}: \texttt{aka=0} gives two regular
 fives, \texttt{aka=1} gives a red five plus a regular five, and \texttt{aka=2}
 gives \texttt{55555p} two red five-pin tiles.
 
-\begin{longtable}{@{}p{0.36\linewidth}p{0.54\linewidth}@{}}
+\begin{longtable}{@{}L{0.36\linewidth}L{0.54\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -229,8 +231,9 @@ Input & Output \\
 \end{longtable}
 
 For compatibility with older documents, the deprecated option
-\texttt{no-aka} is still accepted.  It is equivalent to \texttt{aka=0} and emits
-a package warning.  New documents should use \texttt{aka=0} directly.
+\texttt{no-aka} is still accepted and emits a package warning.
+\texttt{no-aka=1} is equivalent to \texttt{aka=0}; \texttt{no-aka=0} is
+equivalent to \texttt{aka=1}.  New documents should use \texttt{aka} directly.
 
 \begin{verbatim}
 \mahjong[aka=0]{0m0p0s}
@@ -289,7 +292,7 @@ into an optimal combination of \texttt{10k}, \texttt{5k}, \texttt{1k}, and
 The default artwork directory is \texttt{assets/stick/}.  It should contain
 \texttt{10k.pdf}, \texttt{5k.pdf}, \texttt{1k.pdf}, and \texttt{100.pdf}.
 
-\begin{longtable}{@{}p{0.42\linewidth}p{0.48\linewidth}@{}}
+\begin{longtable}{@{}L{0.42\linewidth}L{0.48\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -309,7 +312,7 @@ For \texttt{305}, the automatic decomposition is:
 Manual input is also supported.  The key-value form names each stick type
 explicitly.
 
-\begin{longtable}{@{}p{0.42\linewidth}p{0.48\linewidth}@{}}
+\begin{longtable}{@{}L{0.42\linewidth}L{0.48\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -321,7 +324,7 @@ Input & Output \\
 The compact comma-list form gives the counts in the order
 \texttt{10k}, \texttt{5k}, \texttt{1k}, \texttt{100}.
 
-\begin{longtable}{@{}p{0.42\linewidth}p{0.48\linewidth}@{}}
+\begin{longtable}{@{}L{0.42\linewidth}L{0.48\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -333,7 +336,7 @@ Input & Output \\
 The command accepts local options.  These options affect only the current
 \cmd{\stick} call.
 
-\begin{longtable}{@{}p{0.42\linewidth}p{0.48\linewidth}@{}}
+\begin{longtable}{@{}L{0.42\linewidth}L{0.48\linewidth}@{}}
 \toprule
 Input & Output \\
 \midrule
@@ -356,7 +359,7 @@ The score-stick defaults can also be changed globally:
 If the artwork is installed somewhere else, set \texttt{stick-dir} accordingly:
 
 \begin{verbatim}
-\mahjongtilessetup{stick-dir=/assets/stick}
+\mahjongtilessetup{stick-dir=path/to/assets/stick}
 \end{verbatim}
 
 \section{Overlay notes}
@@ -366,16 +369,16 @@ The \cmd{\mahjong} command supports text annotations.  Use \texttt{[]} in
 
 Annotations may contain ordinary \TeX{} material.  Mahjong tiles inside an
 annotation are rendered only when they are explicitly wrapped in \cmd{\mj}.
-For example, \texttt{[waiting \cmd{\mj}{\{3m\}}]} prints the text
-"waiting" followed by a small mahjong tile in the annotation.  The
-\cmd{\mj} command is parsed only one level deep inside annotations.
+For example, \code{[waiting \mj{3m}]} prints the text "waiting" followed by a
+small mahjong tile in the annotation.  The \cmd{\mj} command is parsed only one
+level deep inside annotations.
 
 The \cmd{\mj} command may also be used directly inside \cmd{\mahjong}.  In
 that case, its argument must contain exactly one tile.  The tile is typeset
 as a normal-size rotated tile above the hand, which is useful for showing a
 drawn tile.
 
-\begin{longtable}{@{}p{0.48\linewidth}p{0.48\linewidth}@{}}
+\begin{longtable}{@{}L{0.48\linewidth}L{0.48\linewidth}@{}}
   \toprule
   Input & Output \\
   \midrule
@@ -385,8 +388,8 @@ drawn tile.
     \mahjong{123m456p789s\mj{2z}11z} \\
   \code{111m113s111p2z2-3*333z7-2z[discard \mj{3s},\\ waiting \mj{1s2-2z}]} &
     \mahjong{111m113s111p2z2-3*333z7-2z[discard \mj{3s},\\ waiting \mj{1s2-2z}]} \\
-  \code{33333z[concealed kong]} &
-    \mahjong{33333z[concealed kong]} \\
+  \code{3333z[note]} &
+    \mahjong{3333z[note]} \\
   \bottomrule
   \end{longtable}
 
@@ -404,8 +407,10 @@ For package authors who prefer an expl3-style interface, mahjong-tiles also expo
 
 \begin{verbatim}
 \ExplSyntaxOn
-\mahjongtiles_typeset_hand:n {111m456s111p11122z}
-\mahjongtilesriver:n         {111m456s111p11122z}
+\mahjongtiles_typeset_hand:n  {111m456s111p11122z}
+\mahjongtiles:n               {111m456s111p11122z}
+\mahjongtiles_typeset_river:n {1m2m3m4m5m6m7m8m9m}
+\mahjongtilesriver:n          {1m2m3m4m5m6m7m8m9m}
 \ExplSyntaxOff
 \end{verbatim}
 
@@ -418,5 +423,9 @@ under the MIT Licence.
 The tile artwork in \texttt{tiles/} is derived from FluffyStuff's
 \texttt{riichi-mahjong-tiles} project.  The upstream licence file places that
 work in the public domain/CC0.  Attribution is retained here and in the README.
+
+Additional flower-tile artwork in \texttt{tiles-tmp/} and score-stick assets in
+\texttt{assets/} were created by Lilia Chen May Wither and are also used under
+public domain/CC0 terms.
 
 \end{document}

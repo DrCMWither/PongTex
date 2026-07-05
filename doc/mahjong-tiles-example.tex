@@ -13,7 +13,7 @@
 
 \begin{document}
 
-Basic hands:
+\section*{Basic hands}
 
 \mahjong{111m456s111p11122z}
 
@@ -21,13 +21,29 @@ Basic hands:
 
 \mahjong{19m19s19p1234567z}
 
-Rotated/open meld marker syntax:
+\section*{MPSZF notation and flower tiles}
+
+\mahjong{123m456p789s1234567z}
+
+\mahjong{012345678f}
+
+\mahjong{123m55p12f}
+
+\section*{Special tiles, gaps, rotations, and stacks}
+
+\mahjong{123m-xx?4p'5p"0s}
 
 \mahjong{111m111s111p22z2-3*333z}
 
-Concealed-kong shorthand:
-
 \mahjong{555m555s22z2-55555p1-33333z}
+
+Red-five edge stack markers:
+
+\mahjong{0p" 0p"" 0p""" 0p+ 0p++ 0p+++}
+
+\mahjong[aka=0]{0p" 0p"" 0p"""}
+
+\section*{Red fives and \texttt{aka}}
 
 Red fives are enabled by default:
 
@@ -41,15 +57,19 @@ A compact key-value optional argument is also supported:
 
 \mahjong[aka=0]{0m0p0s55555p}
 
-Original shorthand markers:
+Global \texttt{aka} can be changed with setup:
 
-\mahjong{123m-xx?4p'5p"0s}
+\mahjongtilessetup{aka=0}
+\mahjong{0m0p0s55555s}
 
-Red-five edge stack markers:
+\mahjongtilessetup{aka=1}
+\mahjong{0m0p0s}
 
-\mahjong{0p" 0p"" 0p""" 0p+ 0p++ 0p+++}
+Aka mode \texttt{aka=2} adds one more red five pin to concealed-kong shorthand:
 
-\mahjong[aka=0]{0p" 0p"" 0p"""}
+\mahjong[aka=2]{55555p}
+
+\section*{Tile-back colour}
 
 Inline back tile colour argument \texttt{[height][scale][color]}:
 
@@ -73,21 +93,11 @@ The global \texttt{color} key:
 \mahjongtilessetup{color=none}
 \mahjong{x x x}
 
-Global \texttt{aka} can be changed with setup:
-
-\mahjongtilessetup{aka=0}
-\mahjong{0m0p0s55555s}
-
-\mahjongtilessetup{aka=1}
-\mahjong{0m0p0s}
-
-Aka mode \texttt{aka=2} adds one more red five pin to concealed-kong shorthand:
-
-\mahjong[aka=2]{55555p}
-
 Full local key-value form:
 
 \mahjong[height=1.5\baselineskip,scale=0.75,color=teal!65!black,aka=0]{x 0m0p0s}
+
+\section*{Discard rivers}
 
 \mahjongriver{1m9m2z5z3s6s1s1m8p4z87m}
 
@@ -95,16 +105,48 @@ Discard river with a sideways riichi tile:
 
 \mahjongriver[river-cols=6]{1m9m2z5z3s6s1s*1m8p4z87m}
 
-Discard river with local color and aka:
+Discard river with local colour and aka:
 
 \mahjongriver[1.5\baselineskip][0.75][teal!65!black][river-cols=5,aka=0]{0m1m2m3m4m5m6m7m8m9m}
 
-Expl3 function:
+\section*{Overlay notes and drawn tiles}
+
+\mahjong{111m111s111p2z2-3*333z7-2z[waiting]}
+
+\mahjong{123m456p789s\mj{2z}11z}
+
+\mahjong{111m113s111p2z2-3*333z7-2z[discard \mj{3s},\\ waiting \mj{1s}]}
+
+\section*{Score sticks}
+
+Automatic point shorthand:
+
+\stick{305}
+
+\stick{089}
+
+Manual key-value form:
+
+\stick{10k=3,100=5}
+
+\stick{5k=1,1k=2,100=4}
+
+Manual compact count form, in \texttt{10k,5k,1k,100} order:
+
+\stick{3,0,0,5}
+
+\stick[manual]{0,1,2,4}
+
+Local stick options:
+
+\stick[height=2em,scale=1,sep=.8em]{305}
+
+\section*{Expl3 interface}
 
 \ExplSyntaxOn
 \mahjongtiles:n {111m456s111p11122z}
-\\
-\mahjongtilesriver:n {1m2m3m4m5m6m7m8m9m}
+\par
+\mahjongtiles_typeset_river:n {1m2m3m4m5m6m7m8m9m}
 \ExplSyntaxOff
 
 \end{document}

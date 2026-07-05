@@ -3,12 +3,12 @@
 % mahjong-tiles.dtx -- documented source for mahjong-tiles
 %
 % Copyright (c) 2021 Daniel Schmitz
-% Copyright (c) 2026 Lilia Chen May wither
+% Copyright (c) 2026 Lilia Chen May Wither
 %
 % This file is distributed under the MIT Licence; see LICENCE.
 %
 %<*driver>
-\ProvidesFile{mahjong-tiles.dtx}[2026/07/04 v2.6.0mahjong-tiles documented source]
+\ProvidesFile{mahjong-tiles.dtx}[2026/07/04 v2.6.0 mahjong-tiles documented source]
 \documentclass{ltxdoc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
@@ -16,9 +16,9 @@
 \usepackage{hyperref}
 \hypersetup{
   pdftitle={mahjong-tiles documented source},
-  pdfauthor={Lilia Chen May wither},
+  pdfauthor={Lilia Chen May Wither},
   pdfsubject={Typesetting Riichi Mahjong hands, flower tiles, discard rivers, and score sticks},
-  pdfkeywords={LaTeX, Mahjong, Riichi, MPSZF, flower tiles, CTAN}
+  pdfkeywords={LaTeX, Mahjong, Riichi, MPSZF, flower tiles, score sticks, CTAN}
 }
 \EnableCrossrefs
 \CodelineIndex
@@ -32,7 +32,7 @@
 % \GetFileInfo{mahjong-tiles.dtx}
 %
 % \title{The \textsf{mahjong-tiles} Package: Documented Source}
-% \author{Lilia Chen May wither}
+% \author{Lilia Chen May Wither}
 % \date{Version 2.6.0, 2026-07-04}
 % \maketitle
 %
@@ -62,6 +62,10 @@
 % work in the public domain/CC0.  Attribution is retained in \texttt{README.md}
 % and \texttt{LICENCE}.
 %
+% Additional flower-tile artwork in \texttt{tiles-tmp/} and score-stick assets in
+% \texttt{assets/} were created by Lilia Chen May Wither and are also used under
+% public domain/CC0 terms.
+%
 % \StopEventually{\PrintChanges\PrintIndex}
 %
 % \section{Implementation}
@@ -74,12 +78,13 @@
 %%
 %% This package is derived from and extends Daniel Schmitz's mahjong package.
 %% Copyright (c) 2021 Daniel Schmitz.
-%% mahjong-tiles modifications are copyright (c) 2026 Lilia Chen May wither.
+%% mahjong-tiles modifications are copyright (c) 2026 Lilia Chen May Wither.
 %%
 %% The package name and file prefix are mahjong-tiles; the LaTeX3 namespace is mahjongtiles.
 %% The public hand command is \mahjong for compact document markup.
 %% Distributed under the MIT Licence; see LICENCE.
 %% Tile artwork in tiles/ is credited to FluffyStuff/riichi-mahjong-tiles;
+%% additional flower-tile and score-stick assets are credited in README.md and LICENCE.
 %% see README.md and LICENCE for details.
 
 \NeedsTeXFormat{LaTeX2e}[2020/10/01]
@@ -1295,7 +1300,7 @@
       .. controls (0,286.68) and (13.3789,300.059) .. (30,300.059)
       -- cycle;
   }
-% way more faster than blend mode compute
+% Faster than computing a blend-mode recolouring.
 \cs_new_protected:Npn \__mahjongtiles_make_back_tile_upright_recolored:
   {
     \tikz

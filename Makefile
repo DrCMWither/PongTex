@@ -21,11 +21,13 @@ $(PACKAGE).sty: $(PACKAGE).dtx $(PACKAGE).ins
 
 doc: unpack doc/$(PACKAGE)-doc.pdf
 
-doc/$(PACKAGE)-doc.pdf: doc/$(PACKAGE)-doc.tex $(PACKAGE).sty tiles/$(PACKAGE)-1m.pdf
+doc/$(PACKAGE)-doc.pdf: doc/$(PACKAGE)-doc.tex $(PACKAGE).sty tiles/$(PACKAGE)-1m.pdf assets/stick/100.pdf assets/stick/1k.pdf assets/stick/5k.pdf assets/stick/10k.pdf
 	$(PDFLATEX) -interaction=nonstopmode -halt-on-error -output-directory=doc doc/$(PACKAGE)-doc.tex
 	$(PDFLATEX) -interaction=nonstopmode -halt-on-error -output-directory=doc doc/$(PACKAGE)-doc.tex
 
-example: unpack
+example: unpack doc/$(PACKAGE)-example.pdf
+
+doc/$(PACKAGE)-example.pdf: doc/$(PACKAGE)-example.tex $(PACKAGE).sty tiles/$(PACKAGE)-1m.pdf assets/stick/100.pdf assets/stick/1k.pdf assets/stick/5k.pdf assets/stick/10k.pdf
 	$(PDFLATEX) -interaction=nonstopmode -halt-on-error -output-directory=doc doc/$(PACKAGE)-example.tex
 
 code-doc:
@@ -42,9 +44,10 @@ distclean: clean
 	@rm -f $(PACKAGE).sty doc/$(PACKAGE)-doc.pdf ../$(PACKAGE).zip
 
 install: unpack doc
-	install -d "$(TEXDIR)/tiles" "$(DOCDIR)" "$(SRCDIR)"
+	install -d "$(TEXDIR)/tiles" "$(TEXDIR)/assets/stick" "$(DOCDIR)" "$(SRCDIR)"
 	install -m 0644 $(PACKAGE).sty "$(TEXDIR)/"
 	install -m 0644 tiles/*.pdf "$(TEXDIR)/tiles/"
+	install -m 0644 assets/stick/*.pdf "$(TEXDIR)/assets/stick/"
 	install -m 0644 README.md LICENCE doc/$(PACKAGE)-doc.pdf doc/$(PACKAGE)-doc.tex doc/$(PACKAGE)-example.tex "$(DOCDIR)/"
 	install -m 0644 $(PACKAGE).dtx $(PACKAGE).ins Makefile "$(SRCDIR)/"
 	@command -v mktexlsr >/dev/null 2>&1 && mktexlsr "$(TEXMFHOME)" || true
